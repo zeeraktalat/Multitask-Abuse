@@ -115,11 +115,11 @@ class Dataset(data.TabularDataset):
         if 'lower' in self.cleaners or 'lower' in processes:
             cleaned = cleaned.lower()
         if 'url' in self.cleaners or 'url' in processes:
-            cleaned = re.sub(r'https?:/\/\S+', '<URL>', cleaned)
+            cleaned = re.sub(r'https?:/\/\S+', 'URL', cleaned)
         if 'hashtag' in self.cleaners or 'hashtag' in processes:
-            cleaned = re.sub(r'#[a-zA-Z0-9]*\b', '<HASHTAG>', cleaned)
+            cleaned = re.sub(r'#[a-zA-Z0-9]*\b', 'HASHTAG', cleaned)
         if 'username' in self.cleaners or 'username' in processes:
-            cleaned = re.sub(r'@\S+', '<USER>', cleaned)
+            cleaned = re.sub(r'@\S+', 'AT_USER', cleaned)
 
         return cleaned
 
