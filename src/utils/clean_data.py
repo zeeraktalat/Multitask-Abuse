@@ -1,3 +1,4 @@
+import os
 from collections import Counter
 
 
@@ -12,7 +13,7 @@ def majority_voted(annotations):
 
 
 def clean_mftc():
-    fin = open('MFTC_V4_text.json', 'r', encoding = 'utf-8')
+    fin = open('~/Desktop/Datasets/MFTC_V4_text.json', 'r', encoding = 'utf-8')
     fout = open('MFTC_V4_text_parsed.tsv', 'w', encoding = 'utf-8')
     tweet_data = []
     annotations = []
@@ -70,5 +71,26 @@ def clean_mftc():
                 continue
 
 
+def clean_sentiment():
+    indir = '/Users/zeerakw/Desktop/Datasets/semeval2017_sentiment/DOWNLOAD/Subtask_A/'
+    of_train = '/Users/zeerakw/Documents/PhD/projects/Multitask-abuse/data/semeval_sentiment_train.tsv'
+    of_test = '/Users/zeerakw/Documents/PhD/projects/Multitask-abuse/data/semeval_sentiment_test.tsv'
+
+    with open(of_train, 'w', encoding = 'utf-8') as otrain, open(of_test, 'w', encoding = 'utf-8') as otest:
+        files = os.listdir(indir)
+        otrain.write("\t".join(['tweet_id', 'sentiment', 'tweet_text']) + '\n')
+        otest.write("\t".join(['tweet_id', 'sentiment', 'tweet_text']) + '\n')
+        for fh in files:
+            if 'sms' in fh or 'live' in fh:
+                continue
+            print("Processing file: {0}".format(fh))
+            inf = open(os.path.join(indir, fh), 'r', encoding = 'latin1').read()
+            if 'train' in fh or 'dev' in fh:
+                otrain.write(inf + '\n')
+            if 'test' in fh and 'dev' not in fh:
+                otest.write(inf + '\n')
+
+
 if __name__ == "__main__":
-    clean_mftc()
+    # clean_mftc()
+    clean_sentiment()
