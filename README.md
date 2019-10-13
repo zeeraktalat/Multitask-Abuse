@@ -26,9 +26,9 @@ In this project, we seek to improve classification performance for abusive langu
 
   - Toxicity (https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge/data)
 
-  - Sentiment (http://ai.stanford.edu/~amaas/data/sentiment/)
+  - Sentiment (Semeval 2017 Task 4: http://alt.qcri.org/semeval2017/task4/index.php?id=results)
 
-  - Rumour Detection  (PHEME dataset: https://github.com/kochkinaelena/Multitask4Veracity OR RumourEval2017)
+  - Rumour Detection (PHEME dataset: https://github.com/kochkinaelena/Multitask4Veracity OR RumourEval2017)
 
   - Moral Foundations Prediction (MFTC: https://psyarxiv.com/w4f72)
 
