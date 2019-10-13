@@ -36,8 +36,4 @@ In this project, we seek to improve classification performance for abusive langu
 
 - Models
 
-  - MLP
-
   - LSTM
-
-  - CNN
