@@ -23,13 +23,11 @@ class BatchGenerator:
 class Dataset(data.TabularDataset):
 
     def __init__(self, data_dir: str, splits: t.Dict[str, str], ftype: str,
-                 fields: t.List[t.Tuple[t.FieldType, ...]] = None, cleaners: t.List[str] = None,
-                 shuffle: bool = True, sep: str = 'tab', skip_header: bool = True, repeat_in_batches = False,
-                 device: str = 'cpu'):
+                 fields: t.List[t.Tuple[t.FieldType, ...]] = None, shuffle: bool = True, sep: str = 'tab',
+                 skip_header: bool = True, repeat_in_batches = False, device: str = 'cpu'):
         """Initialise data class.
         :param data_dir (str): Directory containing dataset.
         :param fields (t.Dict[str, str]): The data fields in the file.
-        :param cleaners t.List[str]: Cleaning operations to be taken.
         :param splits (str): t.Dictionary containing filenames type of data.
         :param ftype: File type of the data file.
         :param shuffle (bool, default: True): Shuffle the data between each epoch.
@@ -48,7 +46,6 @@ class Dataset(data.TabularDataset):
         self.load_params.update(splits)
         self.dfields = fields
         self.repeat = repeat_in_batches
-        self.cleaners = cleaners
         self.device = device
 
     @property
