@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from src.shared.prep import Dataset, BatchGenerator
 import src.shared.types as t
+from src.shared.clean import Cleaner
 
 
 def multilabel_processing(label, field):
@@ -42,8 +43,8 @@ def create_batches(data_dir: str, splits: t.Dict[str, t.Union[str, None]], ftype
 
     # Initiate the dataset object
     data = Dataset(data_dir = data_dir, splits = splits, ftype = ftype, fields = fields, cleaners = cleaners,
-                   batch_sizes = batch_sizes, shuffle = shuffle, sep = sep, skip_header = skip_header,
-                   repeat_in_batches = repeat_in_batches, device = device)
+                   shuffle = shuffle, sep = sep, skip_header = skip_header, repeat_in_batches = repeat_in_batches,
+                   device = device)
 
     # If the fields need new attributes set: set them.
     # TODO assumes only data and field labels need modification.
@@ -82,18 +83,12 @@ def setup_data():
     """
     device = 'cpu'
     data_dir = '/Users/zeerakw/Documents/PhD/projects/Multitask-abuse/data/'
+    clean = Cleaner()
 
     # MFTC
-    mftc = Dataset(data_dir = data_dir,
-                   splits = {'train': 'MFTC_V4_text_parsed.tsv', 'validation': None, 'test': None},
-                   ftype = 'tsv', fields = None, cleaners = ['username', 'hashtag', 'url', 'lower'],
-                   batch_sizes = (64,), shuffle = True, sep = '\t', skip_header = True,
-                   repeat_in_batches = False, device = device)
-
-    mftc_text = t.text_data
-    mftc_label = t.text_label
-    mftc.set_field_attribute(mftc_text, 'tokenize', mftc.tokenize)
-    mftc.set_field_attribute(mftc_label, 'preprocessing', multilabel_processing)
+    mftc_text = (t.text_data, {'attribute': 'tokenize', 'value': clean.tokenize})
+    # TODO Move Multilable procoessing
+    mftc_label = (t.text_label, {'attribute': 'preprocessing', 'value': multilabel_processing})
 
     fields = [('tweet_id', None), ('data', mftc_text),
               ('annotator_1', None), ('annotator_2', None), ('annotator_3', None), ('annotator_4', None),
@@ -102,42 +97,24 @@ def setup_data():
               ('label5', None), ('label6', None), ('label7', None), ('label8', None),
               ('label', mftc_label), ('corpus', None)]
 
-    mftc.fields = fields
+    mftc_opts = {'splits': {'train': 'MFTC_V4_text_parsed.tsv'}, 'ftype': 'tsv', 'data_field': mftc_text,
+                 'label_field': mftc_label, 'batch_sizes': (64, 64), 'shuffle': True, 'sep': '\t', 'skip_header': True,
+                 'repeat_in_batches': False}
 
-    mftc_data, _, _ = mftc.load_data()
-    mftc_train, mftc_test = mftc.split(split_ratio = 0.8, stratified = True, strata_field = 'label')
-    mftc_text.build_vocab(mftc_train)
-    mftc_label.build_vocab(mftc_train)
-
-    train_iter, test_iter = mftc.generate_batches(sort_func, (mftc_train, mftc_test))
-    mftc_train_batch = BatchGenerator(train_iter, 'data', 'label')
-    mftc_test_batch = BatchGenerator(test_iter, 'data', 'label')
-    mftc_loaded = (mftc, mftc_train_batch, mftc_test_batch)
+    mftc = create_batches(data_dir = data_dir, device = device, **mftc_opts)
 
     # Sentiment analysis
-    sent = Dataset(data_dir = data_dir,
-                   splits = {'train': 'semeval_sentiment_train.tsv', 'test': 'semeval_sentiment_test.tsv', },
-                   ftype = 'tsv', fields = None, cleaners = ['username', 'hashtag', 'url', 'lower'],
-                   batch_sizes = (64, 64), shuffle = True, sep = '\t', skip_header = True,
-                   repeat_in_batches = False, device = device)
-
-    sent_text = t.text_data
-    sent_label = t.text_label
-    sent.set_field_attribute(sent_text, 'tokenize', mftc.tokenize)
+    sent_text = (t.text_data, {'attribute': 'tokenize', 'value': clean.tokenize})
+    sent_label = (t.text_label, None)
 
     fields = [('tweet_id', None), ('label', sent_label), ('data', sent_text)]
-    sent.fields = fields
 
-    sent_train, _, sent_test = sent.load_data()
-    sent_text.build_vocab(sent_train)
-    sent_label.build_vocab(sent_label)
+    sent_opts = {'splits': {'train': 'semeval_sentiment_train.tsv', 'test': 'semeval_sentiment_test.tsv'},
+                 'ftype': 'tsv', 'fields': fields, 'shuffle': True, 'sep': '\t', 'skip_header': True,
+                 'repeat_in_batches': False}
+    sent = create_batches(data_dir = data_dir, device = device, **sent_opts)
 
-    train_iter, _, test_iter = sent.generate_batches(sort_func = sort_func)
-    sent_train_batch = BatchGenerator(train_iter, 'data', 'label')
-    sent_test_batch = BatchGenerator(test_iter, 'data', 'label')
-    sent_loaded = (sent_train_batch, sent_test_batch)
-
-    return mftc_loaded, sent_loaded
+    return mftc, sent
 
 
 def train(epochs):
