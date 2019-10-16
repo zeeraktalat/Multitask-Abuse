@@ -1,9 +1,10 @@
 import torch
 import numpy as np
-import torch.nn.functional as F
+from tqdm import tqdm
 import torch.optim as optim
-from src.shared.prep import Dataset, BatchGenerator
 import src.shared.types as t
+import torch.nn.functional as F
+from src.shared.prep import Dataset, BatchGenerator
 from src.shared.clean import Cleaner
 
 
@@ -118,7 +119,9 @@ def setup_data():
 
 
 def train(epochs):
-    # TODO Load and batch data
-    # TODO Create hard parameter sharing???
-    # TODO Define loss for model.
+
+    for ep in tqdm(range(epochs)):
+        # TODO Load and batch data
+        # TODO Create hard parameter sharing???
+        # TODO Define loss for model.
     return
