@@ -19,8 +19,11 @@ class MTLLSTMClassifier(nn.Module):
         # Initialise the hidden dim
         self.all_parameters = nn.ParameterList()
 
+        assert len(input_dims) != len(hidden_dims)
+
         # Input layer (not shared) [Linear]
-        # Hidden layer (shared) [LSTM]
+        # hidden to hidden layer (shared) [Linear]
+        # Hidden to hidden layer (not shared) [LSTM]
         # Output layer (not shared) [Linear}
 
         self.inputs = {}  # Define task inputs
@@ -31,8 +34,14 @@ class MTLLSTMClassifier(nn.Module):
 
         self.shared = []
         for i in range(len(hidden_dims) - 1):
-            all_layers, layer = nn.LSTM(hidden_dims[i], hidden_dims[i + 1])
-            self.shared.append(layer)
+            all_layers, layer = nn.Linear(hidden_dims[i], hidden_dims[i + 1])
+            self.lstm.append(layer)
+            self.all_parameters.append(layer.weight)
+
+        self.lstm = {}
+        for task_id, input_dim in enumerate(input_dims):
+            all_layers, layer = nn.LSTM(hidden_dims[i], hidden_dims[i])
+            self.lstm[task_id][layer]
             self.all_parameters.append(layer.weight)
 
         self.outputs = {}
@@ -57,12 +66,15 @@ class MTLLSTMClassifier(nn.Module):
         :return scores: The "probability" distribution for the classes.
         """
 
-        res = self.dropout(self.inputs[task_id](sequence))
+        res = self.inputs[task_id](sequence)
+        res = self.dropout(res)
 
         for layer in self.shared:
             res = self.dropout(layer(res))
 
-        output = self.outputs[task_id](res)
+        lstm_out, _ = self.lstm[task_id](res)
+
+        output = self.outputs[task_id](lstm_out.view(len(sequence), -1))
 
         prob_dist = self.softmax(output)  # The probability distribution
 
