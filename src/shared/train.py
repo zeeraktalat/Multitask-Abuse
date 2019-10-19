@@ -1,11 +1,12 @@
+import model
 import torch
 import numpy as np
 from tqdm import tqdm
 import torch.optim as optim
 import src.shared.types as t
 import torch.nn.functional as F
-from src.shared.prep import Dataset, BatchGenerator
 from src.shared.clean import Cleaner
+from src.shared.prep import Dataset, BatchGenerator
 
 
 def multilabel_processing(label, field):
@@ -120,7 +121,10 @@ def setup_data():
 
 def train(epochs):
 
-    for ep in tqdm(range(epochs)):
+    optimizer = optim.Adam()
+
+    for epoch in tqdm(range(epochs)):
+
         # TODO Load and batch data
         # TODO Create hard parameter sharing???
         # TODO Define loss for model.
