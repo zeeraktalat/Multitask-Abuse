@@ -1,0 +1,8 @@
+data/davidson_offensive.csv filter=lfs diff=lfs merge=lfs -text
+data/jigsaw_toxic_test.csv filter=lfs diff=lfs merge=lfs -text
+data/jigsaw_toxic_test_labels.csv filter=lfs diff=lfs merge=lfs -text
+data/jigsaw_toxic_train.csv filter=lfs diff=lfs merge=lfs -text
+data/cyberbullying_dataset.csv filter=lfs diff=lfs merge=lfs -text
+data/semeval_sentiment_test.tsv filter=lfs diff=lfs merge=lfs -text
+data/semeval_sentiment_train.tsv filter=lfs diff=lfs merge=lfs -text
+data/MFTC_V4_text_parsed.tsv filter=lfs diff=lfs merge=lfs -text
