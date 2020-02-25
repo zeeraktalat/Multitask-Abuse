@@ -12,6 +12,8 @@ In this project, we seek to improve classification performance for abusive langu
 
     - Develop joint loss for training
 
+    - Multilabel prediction
+
   - Create model which trains on a randomly assigned task but evaluates on hate speech
 
   - Fix data reading
@@ -31,6 +33,8 @@ In this project, we seek to improve classification performance for abusive langu
   - Moral Foundations Prediction (MFTC: https://psyarxiv.com/w4f72)
 
   - Twitter datasets?
+
+  - Dataset coded for african american english.
 
 - Models
 
