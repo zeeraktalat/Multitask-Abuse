@@ -4,11 +4,12 @@ import src.shared.types as t
 
 class MTLLSTMClassifier(nn.Module):
 
-    def __init(self, hidden_dims: t.List[int], input_dims: t.List[int], embedding_dim: t.List[int],
-               output_dims: t.List[int], no_layers: int, dropout: int = 0.2):
+    def __init(self, input_dims: t.List[int], shared_dim: int, hidden_dims: t.List[int], output_dims: t.List[int],
+               no_layers: int = 1, dropout: int = 0.2):
         """Initialise the LSTM.
+        :param input_dim: The dimensionality of the input.
+        :param shared_dim: The dimensionality of the shared layers.
         :param hidden_dim (t.List[int]): The dimensionality of the hidden dimensions for each task.
-        :param input_dim: The dimensionality of the input to the embedding generation.
         :param embedding_dim: The dimensionality of the the produced embeddings.
         :param no_classes: Number of classes for to predict on.
         :param no_layers: The number of recurrent layers in the LSTM (1-3).
@@ -28,36 +29,39 @@ class MTLLSTMClassifier(nn.Module):
 
         self.inputs = {}  # Define task inputs
         for task_id, input_dim in enumerate(input_dims):
-            layer = nn.Linear(input_dim, hidden_dims[task_id])
+            layer = nn.Linear(input_dim, shared_dim)
             self.inputs[task_id] = layer
             self.all_parameters.append(layer.weight)
+            self.all_parameters.append(layer.bias)
 
         self.shared = []
         for i in range(len(hidden_dims) - 1):
             all_layers, layer = nn.Linear(hidden_dims[i], hidden_dims[i + 1])
             self.lstm.append(layer)
             self.all_parameters.append(layer.weight)
+            self.all_parameters.append(layer.bias)
 
         self.lstm = {}
-        for task_id, input_dim in enumerate(input_dims):
-            all_layers, layer = nn.LSTM(hidden_dims[i], hidden_dims[i])
+        for task_id, input_dim in range(len(hidden_dims) - 1):
+            all_layers, layer = nn.LSTM(hidden_dims[i], hidden_dims[i + 1])
             self.lstm[task_id][layer]
             self.all_parameters.append(layer.weight)
+            self.all_parameters.append(layer.bias)
 
         self.outputs = {}
         for task_id, hidden_dim in enumerate(hidden_dims):
             layer = nn.Linear(hidden_dim, output_dims[task_id])
             self.outputs[task_id] = layer
             self.all_parameters.append(layer.weight)
-
-        # Define layers of the network
-        # self.i2e = nn.Embedding(input_dim, embedding_dim)
-        # self.lstm = nn.LSTM(embedding_dim, hidden_dim)
-        # self.h2o = nn.Linear(hidden_dim, no_classes)
+            self.all_parameters.append(layer.bias)
 
         # Set the method for producing "probability" distribution.
         self.softmax = nn.LogSoftmax(dim = 1)
         self.dropout = nn.Dropout(dropout)
+
+        # TODO Ensure that the model is deterministic (the bias term is added)
+        print(self)
+        print(list(self.all_parameters))
 
     def forward(self, sequence, task_id):
         """The forward step in the classifier.
