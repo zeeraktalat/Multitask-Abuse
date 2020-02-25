@@ -1,11 +1,17 @@
 import torch
+from torch.autograd import Variable
 import numpy as np
+import random
 from tqdm import tqdm
 import torch.optim as optim
 import src.shared.types as t
 import torch.nn.functional as F
+
+from sklearn.utils import shuffle
 from src.shared.prep import Dataset, BatchGenerator
 from src.shared.clean import Cleaner
+from src.shared.early_stopping import EarlyStopping
+from src.shared.evaluation import eval_model
 
 
 def multilabel_processing(label, field):
@@ -121,7 +127,106 @@ def setup_data():
 def train(epochs):
 
     for ep in tqdm(range(epochs)):
+        pass
         # TODO Load and batch data
         # TODO Create hard parameter sharing???
         # TODO Define loss for model.
     return
+
+
+def train_model(model, training_datasets, save_path, optimizer,
+                batch_size=64, epochs=30, dev_data=None, clip=None,
+                dev_task_id=0,
+                patience=10, batches_per_epoch=None, shuffle_data=True,
+                loss_weights=None, loss_decay_aux=True):
+    """
+    Trains a model
+    :param model:
+    :param training_datasets: list of tuples containing dense matrices
+    :param save_path: path to save trained model to
+    :param optimizer: Pytorch optimizer to train model
+    :param batch_size: Training batch size
+    :param patience: Number of epochs to observe non-improving dev performance
+    before early stopping
+    :param epochs: Maximum number of epochs (if no early stopping)
+    :param dev_data: tuple (x, y) of development data
+    :param dev_task_id: Task ID for task to use for early stopping, in case of
+    multitask learning
+    :param clip: use gradient clipping
+    :param batches_per_epoch: set fixed number of batches per epoch. If
+    None, an epoch consists of all training examples
+    :param shuffle_data: whether to shuffle data at training
+    :param loss_weights: array or list of floats. When using multiple
+    input/output functions, these weights determine relative task importance
+    :return:
+    """
+    if loss_weights is None:
+        loss_weights = np.ones(len(training_datasets))
+
+    if batches_per_epoch is None:
+        batches_per_epoch = sum([len(dataset[0]) for dataset
+                                 in training_datasets]) // batch_size
+    batchers = []
+
+    early_stopping = None
+    if patience > 0:
+        early_stopping = EarlyStopping(save_path, patience,
+                                       low_is_good=not model.binary)
+
+    for training_dataset in training_datasets:
+        X, y = training_dataset
+        if shuffle_data:
+            X, y = shuffle(X, y)
+
+        batcher = Batcher(len(X), batch_size)
+        batchers.append(batcher)
+
+    for epoch in tqdm(range(epochs)):
+        if loss_decay_aux:
+            loss_weights[1:] = loss_weights[1:] * 0.9
+        epoch_loss = 0
+        epoch_cwi_loss = []
+        epoch_data_size = 0
+        for b in range(batches_per_epoch):
+            task_id = random.choice(range(len(training_datasets)))
+            batcher = batchers[task_id]
+            X, y = training_datasets[task_id]
+            X = torch.tensor(X).float()
+            y = torch.tensor(y).float()
+            size, start, end = batcher.next_loop()
+            d, gold = Variable(X[start:end]), y[start:end]
+            model.train()
+            optimizer.zero_grad()
+            logits = model(d, input_task_id=task_id)
+
+            logits = logits.view([size, 1])
+            if model.binary:
+                loss = torch.nn.functional.binary_cross_entropy(logits, gold)
+            else:
+                loss = (logits - gold).pow(2).mean()
+            loss = loss * loss_weights[task_id]
+            epoch_cwi_loss.append(loss.data.numpy())
+            loss.backward()
+
+            epoch_loss += loss.cpu()
+            epoch_data_size += size
+
+            if clip is not None:
+                torch.nn.utils.clip_grad_norm(model.parameters(), clip)
+
+            optimizer.step()
+
+        print("Epoch train loss:", np.array(epoch_cwi_loss).mean())
+
+        if dev_data is not None:
+            X_dev, y_dev = dev_data
+            score, corr, _ = eval_model(model, X_dev, y_dev,
+                                        task_id=dev_task_id,
+                                        batch_size=batch_size)
+
+            if early_stopping is not None and early_stopping(model, score):
+                early_stopping.set_best_state(model)
+                break
+
+    if early_stopping is not None:
+        early_stopping.set_best_state(model)
