@@ -1,11 +1,15 @@
+import sys
+import os
 import torch
-from torch.autograd import Variable
-import numpy as np
 import random
+import numpy as np
 from tqdm import tqdm
 import torch.optim as optim
 import src.shared.types as t
 import torch.nn.functional as F
+from torch.autograd import Variable
+
+sys.path.extend([os.path.join(os.getcwd(), 'gen')])
 
 from sklearn.utils import shuffle
 from src.shared.prep import Dataset, BatchGenerator
@@ -41,47 +45,6 @@ def store_fields(obj, data_field, label_field, **kwargs):
     field.extend([label_field, data_field])
     obj.field_instance = tuple(field)
 
-
-def create_batches(data_dir: str, splits: t.Dict[str, t.Union[str, None]], ftype: str, fields: t.Union[dict, list],
-                   cleaners: t.List[str], batch_sizes: t.Tuple[int, ...], shuffle: bool, sep: str, skip_header: bool,
-                   repeat_in_batches: bool, device: t.Union[str, int],
-                   data_field: t.Tuple[t.FieldType, t.Union[t.Dict, None]],
-                   label_field: t.Tuple[t.FieldType, t.Union[t.Dict, None]], **kwargs):
-
-    # Initiate the dataset object
-    data = Dataset(data_dir = data_dir, splits = splits, ftype = ftype, fields = fields, cleaners = cleaners,
-                   shuffle = shuffle, sep = sep, skip_header = skip_header, repeat_in_batches = repeat_in_batches,
-                   device = device)
-
-    # If the fields need new attributes set: set them.
-    # TODO assumes only data and field labels need modification.
-    if data_field[1]:
-        data.set_field_attribute(data_field[0], data_field[1]['attribute'], data_field[1]['value'])
-
-    if label_field[1]:
-        data.set_field_attribute(label_field[0], label_field[1]['attribute'], label_field[1]['value'])
-
-    # Store our Field instances so we can later access them.
-    store_fields(data, data_field, label_field, **kwargs)
-
-    data.fields = fields  # Update the fields in the class
-
-    loaded = data.load_data()  # Data paths exist in the class
-
-    if len([v for v in splits.values() if v is not None]) == 1:  # If only one dataset is given
-        train, test = data.split(split_ratio = kwargs['split_ratio'], stratified = True, strata_field = kwargs['label'])
-        loaded = (train, None, test)
-
-    data_field.build_vocab()
-    label_field.build_vocab()
-
-    train, dev, test = data.generate_batches(sort_func, loaded, batch_sizes)
-    train_batch = BatchGenerator(train, 'data', 'label')
-    dev_batch = BatchGenerator(dev, 'data', 'label') if dev is not None else None
-    test_batch = BatchGenerator(test, 'data', 'label')
-
-    batches = (train_batch, dev_batch, test_batch)
-    return data, batches
 
 
 def setup_data():
@@ -122,16 +85,6 @@ def setup_data():
     sent = create_batches(data_dir = data_dir, device = device, **sent_opts)
 
     return mftc, sent
-
-
-def train(epochs):
-
-    for ep in tqdm(range(epochs)):
-        pass
-        # TODO Load and batch data
-        # TODO Create hard parameter sharing???
-        # TODO Define loss for model.
-    return
 
 
 def train_model(model, training_datasets, save_path, optimizer,
