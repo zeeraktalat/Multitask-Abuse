@@ -93,8 +93,11 @@ class GeneralDataset(IterableDataset):
 
             for field in self.train_fields:
                 idx = field.index if self.ftype in ['CSV', 'TSV'] else field.cname
-                data_line[field.name] = self.process_doc(line[idx].rstrip())
-                data_line['original'] = self.process_doc(line[idx].rstrip())
+                try:
+                    data_line[field.name] = self.process_doc(line[idx].rstrip())
+                    data_line['original'] = self.process_doc(line[idx].rstrip())
+                except Exception as e:
+                    __import__('pdb').set_trace()
 
             for field in self.label_fields:
                 idx = field.index if self.ftype in ['CSV', 'TSV'] else field.cname
@@ -283,7 +286,20 @@ class GeneralDataset(IterableDataset):
         """Build label vocabulary.
         :labels (base.DataType): List of datapoints to process.
         """
-        labels = set(getattr(l, getattr(f, 'name')) for l in labels for f in self.label_fields)
+        seen_labels = []
+        try:
+            for l in labels:
+                for f in self.label_fields:
+                        label = getattr(l, getattr(f, 'name'))
+                        if isinstance(label, list):
+                            seen_labels.extend(label)
+                        else:
+                            seen_labels.append(label)
+            labels = set(seen_labels)
+        except Exception as e:
+            __import__('pdb').set_trace()
+
+        # labels = set(getattr(l, getattr(f, 'name')) for l in labels for f in self.label_fields)
         self.itol = {ix: l for ix, l in enumerate(sorted(labels))}
         self.ltoi = {l: ix for ix, l in self.itol.items()}
 
@@ -385,8 +401,7 @@ class GeneralDataset(IterableDataset):
     def onehot_encode_doc(self, doc, names):
         """Onehot encode a single documenbase."""
         text = [tok for name in names for tok in getattr(doc, name)]
-        dtype = torch.LongTensor if not self.gpu else torch.cuda.LongTensor
-        encoded_doc = torch.zeros(1, self.length, len(self.stoi), dtype = dtype)
+        encoded_doc = torch.zeros(1, self.length, len(self.stoi), dtype = torch.int64)  # Hard-coded to be long tensors
 
         if len(text) < self.length:  # For externally loaded datasets
             text = self._pad_doc(text, self.length)

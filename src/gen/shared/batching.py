@@ -57,11 +57,16 @@ class Batch(object):
         self.batch_size = batch_size
         self.data = data
 
-    def create_batches(self):
-        """Go over the data and create batches."""
+    def create_batches(self, shuffle: bool = False) -> None:
+        """Go over the data and create batches.
+        :shuffle (bool, default: False): Shuffle the dataset prior to batching it.
+        """
         self.batches = []
         batch = []
         start_ix, end_ix = 0, self.batch_size
+        if shuffle:
+            shuffle(self.data)
+
         for i in range(0, len(self.data), self.batch_size):
             batch = self.data[start_ix:end_ix]
             start_ix, end_ix = start_ix + self.batch_size, end_ix + self.batch_size
