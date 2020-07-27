@@ -8,7 +8,7 @@ from mlearn.utils.metrics import Metrics
 import mlearn.modeling.multitask as mod_lib
 from mlearn.data.clean import Cleaner, Preprocessors
 from jsonargparse import ArgumentParser, ActionConfigFile
-from mlearn.utils.train import run_singletask_model as run_model
+from mlearn.utils.train import run_mtl_model as run_model
 from mlearn.utils.pipeline import process_and_batch, hyperparam_space
 
 
