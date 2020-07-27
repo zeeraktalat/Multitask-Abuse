@@ -61,68 +61,119 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    base_params = {'gpu': args.gpu,
-                   'batch_first': True,
-                   'model': MTLLSTMClassifier,
-                   'metrics': select_metrics(args.metrics)
-                   }
+    if 'f1' in args.metrics + [args.display, args.stop_metric]:
+        for i, m in enumerate(args.metrics):
+            if 'f1' in m:
+                args.metrics[i] = 'f1-score'
+        if args.display == 'f1':
+            args.display = 'f1-score'
+        if args.stop_metric == 'f1':
+            args.display = 'f1-score'
 
-    hyper_params = {'dropout': args.dropout,
-                    'shuffle': args.shuffle,
-                    'epochs': args.epochs
-                    }
-
-    cnn_args = {'num_filters': args.filters,
-                'max_feats': args.max_feats,
-                'window_sizes': args.window_sizes
-                }
-
-    rnn_args = {'hidden_dim': args.hidden,
-                'embedding_dim': args.embedding,
-                'num_layers': 1,
-                }
-
-    eval_args = {'model': None,
-                 'iterator': None,
-                 'loss_func': None,
-                 'metrics': train_args['metrics'],
-                 'gpu': args.gpu
-                 }
-
-    train_args = {} + base_params + hyper_params
+    if args.encoding == 'onehot':
+        onehot = True
+    elif args.encoding == 'embedding':
+        onehot = False
 
     # Set seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # Set up preprocessing
     c = Cleaner(args.cleaners)
-    p = Preprocessors()
+    p = Preprocessors(args.datadir)
 
-    args.features = args.features.lower()
-    args.train = args.train.lower()
-    args.loss = args.loss.lower()
-    args.optimizer = args.optimizer.lower()
-    args.model = args.model.lower()
+    experiment = p.word_token
 
-    # Set features to run
-    if args.features == 'word':
-        features = p.word_token
-
-    # if args.main == 'davidson':
-    #     main = loaders.davidson(c, features)
-    #     evals = [main, loaders.wulczyn(c, features), loaders.garcia(c, features), loaders.waseem(c, features),
-    #              loaders.waseem_hovy(c, features), ]
-    #
-    # main.build_token_vocab(main.data)
-    # main.build_label_vocab(main.data)
-
-    train_args['input_dims'] = [main.vocab_size()] + [a.vocab_size() for a in aux]
-    train_args['hidden_dims'] = args.hidden
-    train_args['output_dim'] = [main.label_count()] + [a.label_count() for a in aux]
-
+    # Define arg dictionaries
+    train_args = {}
     model_args = {}
 
+    # Load datasets
+    # TODO write loaders for all other datasets.
+    if 'waseem' in args.main:  # Waseem is the main task
+        main = loaders.waseem(c, args.datadir, preprocessor = experiment,
+                               label_processor = loaders.waseem_to_binary, stratify = 'label'),
+        other = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
+                                    label_processor = loaders.waseem_to_binary,
+                                    stratify = 'label')
+        main.data.extend(other.data)
+        main.dev.extend(other.dev)
+        main.test.extend(other.test)
+
+        aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
+                               skip_header = True),
+               loaders.davidson(c, args.datadir, preprocessor = experiment,
+                                label_processor = loaders.davidson_to_binary, stratify = 'label',
+                                skip_header = True),
+               ]
+
+    if args.main == 'davidson':
+        main = loaders.davidson(c, args.datadir, preprocessor = experiment,
+                                label_processor = loaders.davidson_to_binary,
+                                stratify = 'label', skip_header = True)
+
+        waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
+                                label_processor = loaders.waseem_to_binary, stratify = 'label'),
+        w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
+                                     label_processor = loaders.waseem_to_binary,
+                                     stratify = 'label')
+        waseem.data.extend(w_hovy.data)
+        waseem.dev.extend(w_hovy.dev)
+        waseem.test.extend(w_hovy.test)
+
+        aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment,
+                               stratify = 'label', skip_header = True),
+               waseem,
+               ]
+
+    elif args.main == 'wulczyn':
+        main = loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
+
+        waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
+                                label_processor = loaders.waseem_to_binary, stratify = 'label'),
+        w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
+                                     label_processor = loaders.waseem_to_binary,
+                                     stratify = 'label')
+        waseem.data.extend(w_hovy.data)
+        waseem.dev.extend(w_hovy.dev)
+        waseem.test.extend(w_hovy.test)
+
+        aux = [loaders.davidson(c, args.datadir, preprocessor = experiment,
+                                label_processor = loaders.davidson_to_binary, stratify = 'label',
+                                skip_header = True),
+               waseem,
+               ]
+
+    datasets = [main] + aux
+    dev = main.dev
+    test = main.test
+
+    # Build token and label vocabularies for datasets
+    for dataset in datasets:
+        dataset.build_token_vocab(dataset.data)
+        dataset.build_label_vocab(dataset.data)
+
+    # Batch dev and test
+    dev_batcher = process_and_batch(main, main.dev, 64, onehot)
+    test_batcher = process_and_batch(main, main.test, 64, onehot)
+
+    # Set input and ouput dims
+    train_args['input_dim'] = [dataset.vocab_size() for dataset in datasets]
+    train_args['output_dim'] = [dataset.label_count() for dataset in dataset]
+    train_args['main_name'] = main.name
+
+    # Set models to iterate over
+    models = []
+    for m in args.model:
+        if m == 'mlp':
+            if onehot:
+                models.append(mod_lib.OnehotMLPClassifier)
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    # Select optimizer
     if args.optimizer == 'adam':
         model_args['optimizer'] = torch.optim.Adam
     elif args.optimizer == 'sgd':
