@@ -183,22 +183,93 @@ if __name__ == "__main__":
     elif args.optimizer == 'adamw':
         model_args['optimizer'] = torch.optim.AdamW
 
+    # Explains losses:
+    # https://medium.com/udacity-pytorch-challengers/a-brief-overview-of-loss-functions-in-pytorch-c0ddb78068f7
+    # Set loss
     if args.loss == 'nlll':
-        model_args['loss_func'] = torch.nn.NLLLoss
+        model_args['loss'] = torch.nn.NLLLoss
     elif args.loss == 'crossentropy':
-        model_args['loss_func'] = torch.nn.CrossEntropyLoss
+        model_args['loss'] = torch.nn.CrossEntropyLoss
 
-    # Set models
-    if args.model == 'lstm':
-        models = [LSTMClassifier(**train_args)]
-        model_header = ['epoch', 'model', 'input dim', 'embedding dim', 'hidden dim', 'output dim', 'num layers',
-                        'learning rate']
-        model_info = {'lstm': ['lstm', train_args['input_dim'], train_args['embedding_dim'], train_args['hidden_dim'],
-                               train_args['output_dim'], train_args['num_layers'], args.learning_rate]}
+    # Open output files
+    base = f'{args.results}/{args.main}_{args.encoding}_{args.experiment}'
+    enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
+    pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
-    train_args['batches'] = process_and_batch(main, main.data, args.batch_size, args.onehot)
+    train_writer = csv.writer(open(f"{base}_train.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    test_writer = csv.writer(open(f"{base}_test.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    pred_writer = csv.writer(open(f"{base}_preds.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
 
-    if main.dev is not None:  # As the dataloaders always create a dev set, this condition will always be True
-        train_args['dev_batches'] = process_and_batch(main, main.dev, args.batch_size, args.onehot)
+    model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
+    train_args.update({'model_hdr': model_hdr, 'metric_hdr': args.metrics + ['loss']})
 
-    test_sets = [process_and_batch(main, data.test, args.batch_size, args.onehot) for data in evals]
+    if enc == 'w':
+        metric_hdr = args.metrics + ['loss']
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr += metric_hdr
+        test_writer.writerow(hdr)  # Don't include dev columns when writing test
+        train_writer.writerow(hdr)
+
+    pred_metric_hdr = args.metrics + ['loss']
+    if pred_enc == 'w':
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr += ['Label', 'Prediction']
+        pred_writer.writerow(hdr)
+
+    # Get hyper-parameter combinations
+    base_param = args.hyper_parameters.pop()
+    search_space = [{base_param: val} for val in getattr(args, base_param)]
+    hyper_parameters = [(param, getattr(args, param)) for param in args.hyper_parameters]
+
+    train_args.update({'num_layers': 1,
+                       'shuffle': args.shuffle,
+                       'batch_first': True,
+                       'gpu': args.gpu,
+                       'save_path': f"{args.save_model}{args.experiment}_best",
+                       'early_stopping': args.patience,
+                       'low': True if args.stop_metric == 'loss' else False,
+                       'data_name': "_".join([data.name for data in datasets])
+                       })
+
+    with tqdm(args.batch_size, desc = "Batch Size Iterator") as b_loop,\
+         tqdm(models, desc = "Model Iterator") as m_loop:
+        for batch_size in b_loop:
+            b_loop.set_postfix(batches = batch_size)
+            batchers = [process_and_batch(dataset, dataset.data, batch_size, onehot) for dataset in datasets]
+
+            for parameters in tqdm(hyperparam_space(search_space, hyper_parameters), desc = "Hyper-parameter Iterator"):
+                train_args.update(parameters)
+
+                # hyper_info = ['Batch size', '# Epochs', 'Learning Rate']
+                train_args['hyper_info'] = [batch_size, train_args['epoch'], train_args['learning_rate']]
+                for model in m_loop:
+                    # Intialize model, loss, optimizer, and metrics
+                    train_args['model'] = model(**train_args)
+                    train_args['loss'] = model_args['loss']()
+                    train_args['optimizer'] = model_args['optimizer'](train_args['model'].parameters(),
+                                                                      train_args['learning_rate'])
+
+                    train_args['metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
+                    train_args['dev_metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
+                    m_loop.set_postfix(model = train_args['model'].name)  # Cur model name
+
+                    run_model(train = True, writer = train_writer, **train_args)
+
+                    eval_args = {'model': train_args['model'],
+                                 'batchers': test_batcher,
+                                 'loss': train_args['loss'],
+                                 'metrics': Metrics(args.metrics, args.display, args.stop_metric),
+                                 'gpu': args.gpu,
+                                 'data': main.test,
+                                 'dataset': main,
+                                 'hyper_info': train_args['hyper_info'],
+                                 'model_hdr': train_args['model_hdr'],
+                                 'metric_hdr': train_args['metric_hdr'],
+                                 'main_name': train_args['main_name'],
+                                 'data_name': test.name,
+                                 'train_field': 'text',
+                                 'label_field': 'label',
+                                 'store': True
+                                 }
+
+                    run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
