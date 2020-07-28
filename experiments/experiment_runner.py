@@ -93,7 +93,7 @@ if __name__ == "__main__":
     # TODO write loaders for all other datasets.
     if 'waseem' in args.main:  # Waseem is the main task
         main = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                               label_processor = loaders.waseem_to_binary, stratify = 'label'),
+                               label_processor = loaders.waseem_to_binary, stratify = 'label')
         other = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
                                     label_processor = loaders.waseem_to_binary,
                                     stratify = 'label')
@@ -114,7 +114,7 @@ if __name__ == "__main__":
                                 stratify = 'label', skip_header = True)
 
         waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.waseem_to_binary, stratify = 'label'),
+                                label_processor = loaders.waseem_to_binary, stratify = 'label')
         w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
                                      label_processor = loaders.waseem_to_binary,
                                      stratify = 'label')
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         main = loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
 
         waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.waseem_to_binary, stratify = 'label'),
+                                label_processor = loaders.waseem_to_binary, stratify = 'label')
         w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
                                      label_processor = loaders.waseem_to_binary,
                                      stratify = 'label')
@@ -197,16 +197,17 @@ if __name__ == "__main__":
         model_args['loss'] = torch.nn.CrossEntropyLoss
 
     # Open output files
-    base = f'{args.results}/{args.main}_{args.encoding}_{args.experiment}'
+    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
     enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
     pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
     train_writer = csv.writer(open(f"{base}_train.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
     test_writer = csv.writer(open(f"{base}_test.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
     pred_writer = csv.writer(open(f"{base}_preds.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
+    batch_writer = csv.writer(open(f"{base}_batch.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
 
     model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
-    train_args.update({'model_hdr': model_hdr, 'metric_hdr': args.metrics + ['loss']})
+    train_args.update({'model_hdr': model_hdr, 'metric_hdr': args.metrics + ['loss'], 'batch_writer': batch_writer})
 
     if enc == 'w':
         metric_hdr = args.metrics + ['loss']
@@ -214,6 +215,8 @@ if __name__ == "__main__":
         hdr += metric_hdr
         test_writer.writerow(hdr)  # Don't include dev columns when writing test
         train_writer.writerow(hdr)
+        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task'] + model_hdr + metric_hdr
+        batch_writer.writerow(batch_hdr)
 
     pred_metric_hdr = args.metrics + ['loss']
     if pred_enc == 'w':
