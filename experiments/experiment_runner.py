@@ -31,10 +31,9 @@ if __name__ == "__main__":
     parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/')
 
     # Model architecture
-    parser.add_argument("--embedding_dim", help = "Set the embedding dimension.", default = [300], type = int,
+    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [128, 128, 128], type = list,
                         nargs = '+')
-    parser.add_argument("--hidden_dim", help = "Set the hidden dimension.", default = [128], type = int, nargs = '+')
-    parser.add_argument("--layers", help = "Set the number of layers.", default = 1, type = int)
+    parser.add_argument("--shared", help = "Set the shared dimension", default = [256], type = int, nargs = '+')
     parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
     parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
@@ -52,11 +51,13 @@ if __name__ == "__main__":
                         default = ['epochs'], type = str.lower, nargs = '+')
 
     # Experiment parameters
+    parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = None)
+    parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
+                        nargs = '+')
     parser.add_argument('--shuffle', help = "Shuffle dataset between epochs", type = bool, default = True)
     parser.add_argument('--gpu', help = "Set to run on GPU", type = bool, default = False)
     parser.add_argument('--seed', help = "Set the random seed.", type = int, default = 32)
-    parser.add_argument("--slur_window", help = "Set window size for slur replacement.", default = None, type = int,
-                        nargs = '+')
+    parser.add_argument("--experiment", help = "Set experiment to run.", default = "word", type = str.lower)
     parser.add_argument('--cfg', action = ActionConfigFile, default = None)
 
     args = parser.parse_args()
@@ -154,13 +155,17 @@ if __name__ == "__main__":
         dataset.build_label_vocab(dataset.data)
 
     # Batch dev and test
-    dev_batcher = process_and_batch(main, main.dev, 64, onehot)
+    train_args['dev'] = process_and_batch(main, main.dev, 64, onehot)
     test_batcher = process_and_batch(main, main.test, 64, onehot)
 
     # Set input and ouput dims
     train_args['input_dim'] = [dataset.vocab_size() for dataset in datasets]
-    train_args['output_dim'] = [dataset.label_count() for dataset in dataset]
+    train_args['output_dims'] = [dataset.label_count() for dataset in datasets]
     train_args['main_name'] = main.name
+
+    # Set number of batches per epoch and weight of each task
+    train_args['batches_per_epoch'] = args.batches_epoch
+    train_args['loss_weights'] = args.loss_weights
 
     # Set models to iterate over
     models = []
@@ -217,31 +222,35 @@ if __name__ == "__main__":
         pred_writer.writerow(hdr)
 
     # Get hyper-parameter combinations
-    base_param = args.hyper_parameters.pop()
+    base_param = args.hyperparams.pop()
     search_space = [{base_param: val} for val in getattr(args, base_param)]
-    hyper_parameters = [(param, getattr(args, param)) for param in args.hyper_parameters]
+    hyper_parameters = [(param, getattr(args, param)) for param in args.hyperparams]
 
     train_args.update({'num_layers': 1,
                        'shuffle': args.shuffle,
                        'batch_first': True,
                        'gpu': args.gpu,
-                       'save_path': f"{args.save_model}{args.experiment}_best",
+                       'save_path': f"{args.save_model}{args.main}_{args.experiment}_best",
                        'early_stopping': args.patience,
                        'low': True if args.stop_metric == 'loss' else False,
-                       'data_name': "_".join([data.name for data in datasets])
+                       'data_name': "_".join([data.name.split()[0] for data in datasets])
                        })
 
     with tqdm(args.batch_size, desc = "Batch Size Iterator") as b_loop,\
          tqdm(models, desc = "Model Iterator") as m_loop:
         for batch_size in b_loop:
             b_loop.set_postfix(batches = batch_size)
-            batchers = [process_and_batch(dataset, dataset.data, batch_size, onehot) for dataset in datasets]
+            train_args['batchers'] = [process_and_batch(dataset, dataset.data, batch_size, onehot)
+                                      for dataset in datasets]
 
             for parameters in tqdm(hyperparam_space(search_space, hyper_parameters), desc = "Hyper-parameter Iterator"):
                 train_args.update(parameters)
+                train_args['hidden_dims'] = train_args['hidden']
+                train_args['shared_dim'] = train_args['shared']
+                train_args
 
                 # hyper_info = ['Batch size', '# Epochs', 'Learning Rate']
-                train_args['hyper_info'] = [batch_size, train_args['epoch'], train_args['learning_rate']]
+                train_args['hyper_info'] = [batch_size, train_args['epochs'], train_args['learning_rate']]
                 for model in m_loop:
                     # Intialize model, loss, optimizer, and metrics
                     train_args['model'] = model(**train_args)
@@ -266,10 +275,10 @@ if __name__ == "__main__":
                                  'model_hdr': train_args['model_hdr'],
                                  'metric_hdr': train_args['metric_hdr'],
                                  'main_name': train_args['main_name'],
-                                 'data_name': test.name,
+                                 'data_name': main.name,
                                  'train_field': 'text',
                                  'label_field': 'label',
-                                 'store': True
+                                 'store': True,
+                                 'mtl': 0
                                  }
-
                     run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
