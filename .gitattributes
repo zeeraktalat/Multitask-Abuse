@@ -6,3 +6,9 @@ data/cyberbullying_dataset.csv filter=lfs diff=lfs merge=lfs -text
 data/semeval_sentiment_test.tsv filter=lfs diff=lfs merge=lfs -text
 data/semeval_sentiment_train.tsv filter=lfs diff=lfs merge=lfs -text
 data/MFTC_V4_text_parsed.tsv filter=lfs diff=lfs merge=lfs -text
+data/Wamateur_expert.json filter=lfs diff=lfs merge=lfs -text
+data/waseem_hovy.json filter=lfs diff=lfs merge=lfs -text
+data/semeval_sentiment_twitter-2016train-A.tsv filter=lfs diff=lfs merge=lfs -text
+data/wulczyn_dev.tsv filter=lfs diff=lfs merge=lfs -text
+data/wulczyn_test.tsv filter=lfs diff=lfs merge=lfs -text
+data/wulczyn_train.tsv filter=lfs diff=lfs merge=lfs -text
