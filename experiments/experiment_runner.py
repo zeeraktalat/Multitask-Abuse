@@ -31,7 +31,9 @@ if __name__ == "__main__":
     parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/')
 
     # Model architecture
-    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [128, 128, 128], type = list,
+    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [[100, 100, 100]], type = list,
+                        nargs = '+')
+    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [[128, 128, 128]], type = list,
                         nargs = '+')
     parser.add_argument("--shared", help = "Set the shared dimension", default = [256], type = int, nargs = '+')
     parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
@@ -248,7 +250,10 @@ if __name__ == "__main__":
 
             for parameters in tqdm(hyperparam_space(search_space, hyper_parameters), desc = "Hyper-parameter Iterator"):
                 train_args.update(parameters)
-                train_args['hidden_dims'] = train_args['hidden']
+                if 'hidden' in train_args:
+                    train_args['hidden_dims'] = train_args['hidden']
+                elif 'embedding' in train_args:
+                    train_args['embedding_dims'] = train_args['embedding']
                 train_args['shared_dim'] = train_args['shared']
                 train_args
 
