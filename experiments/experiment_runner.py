@@ -174,7 +174,7 @@ if __name__ == "__main__":
             if onehot:
                 models.append(mod_lib.OnehotMLPClassifier)
             else:
-                raise NotImplementedError
+                models.append(mod_lib.EmbeddingMLPClassifier)
         else:
             raise NotImplementedError
 

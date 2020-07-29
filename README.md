@@ -8,23 +8,17 @@ In this project, we seek to improve classification performance for abusive langu
 
   - Code MTL model
 
-    - Randomly choose task to work on.
-
-    - Develop joint loss for training
-
     - Multilabel prediction
 
   - Create model which trains on a randomly assigned task but evaluates on hate speech
-
-  - Fix data reading
-
-  - Create dev sets for everything
 
 - Datasets
 
   - Sarcasm (https://arxiv.org/pdf/1704.05579.pdf)
 
   - Offensive Language: Davidson et al.
+
+  - Hate speech (Waseem & Hovy, Waseem)
 
   - Toxicity (https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge/data)
 
@@ -34,7 +28,21 @@ In this project, we seek to improve classification performance for abusive langu
 
   - Twitter datasets?
 
-  - Dataset coded for african american english.
+  - Demographic dataset: Preotiuc and Ungar.
+    
+    Race key:
+    
+    - 1: African-American
+
+    - 2: Latinx/Hispanic
+
+    - 3: Asian
+
+    - 4: White
+
+    - 5: Multiracial
+
+    - NULL: Didn't answer/Other race (usually Native American)
 
 - Models
 
