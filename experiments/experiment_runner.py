@@ -159,7 +159,7 @@ if __name__ == "__main__":
     test_batcher = process_and_batch(main, main.test, 64, onehot)
 
     # Set input and ouput dims
-    train_args['input_dim'] = [dataset.vocab_size() for dataset in datasets]
+    train_args['input_dims'] = [dataset.vocab_size() for dataset in datasets]
     train_args['output_dims'] = [dataset.label_count() for dataset in datasets]
     train_args['main_name'] = main.name
 
@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     if enc == 'w':
         metric_hdr = args.metrics + ['loss']
-        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
         hdr += metric_hdr
         test_writer.writerow(hdr)  # Don't include dev columns when writing test
         train_writer.writerow(hdr)
