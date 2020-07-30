@@ -213,11 +213,14 @@ if __name__ == "__main__":
 
     if enc == 'w':
         metric_hdr = args.metrics + ['loss']
-        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning rate'] + model_hdr
         hdr += metric_hdr
         test_writer.writerow(hdr)  # Don't include dev columns when writing test
         train_writer.writerow(hdr)
-        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task'] + model_hdr + metric_hdr
+
+        # Batch hdr
+        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task', 'Batch size', '# Epochs', 'Learning rate']
+        batch_hdr += model_hdr + metric_hdr
         batch_writer.writerow(batch_hdr)
 
     pred_metric_hdr = args.metrics + ['loss']
