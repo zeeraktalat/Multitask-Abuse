@@ -12,6 +12,9 @@ from mlearn.utils.train import run_mtl_model as run_model
 from mlearn.utils.pipeline import process_and_batch, hyperparam_space
 
 
+csv.field_size_limit(151072)
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description = "Run Experiments using MTL.")
 
@@ -95,30 +98,33 @@ if __name__ == "__main__":
     # TODO write loaders for all other datasets.
     if 'waseem' in args.main:  # Waseem is the main task
         main = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                               label_processor = loaders.waseem_to_binary, stratify = 'label')
+                               label_processor = None, stratify = 'label')
         other = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                    label_processor = loaders.waseem_to_binary,
+                                    label_processor = None,
                                     stratify = 'label')
         main.data.extend(other.data)
         main.dev.extend(other.dev)
         main.test.extend(other.test)
 
+        breakpoint()
         aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
                                skip_header = True),
                loaders.davidson(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.davidson_to_binary, stratify = 'label',
+                                label_processor = None, stratify = 'label',
                                 skip_header = True),
+               loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                     stratify = 'label')
                ]
 
     if args.main == 'davidson':
         main = loaders.davidson(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.davidson_to_binary,
+                                label_processor = None,
                                 stratify = 'label', skip_header = True)
 
         waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.waseem_to_binary, stratify = 'label')
+                                label_processor = None, stratify = 'label')
         w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                     label_processor = loaders.waseem_to_binary,
+                                     label_processor = None,
                                      stratify = 'label')
         waseem.data.extend(w_hovy.data)
         waseem.dev.extend(w_hovy.dev)
@@ -126,25 +132,27 @@ if __name__ == "__main__":
 
         aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment,
                                stratify = 'label', skip_header = True),
-               waseem,
+               waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                             stratify = 'label')
                ]
 
     elif args.main == 'wulczyn':
         main = loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
 
         waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.waseem_to_binary, stratify = 'label')
+                                label_processor = None, stratify = 'label')
         w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                     label_processor = loaders.waseem_to_binary,
+                                     label_processor = None,
                                      stratify = 'label')
         waseem.data.extend(w_hovy.data)
         waseem.dev.extend(w_hovy.dev)
         waseem.test.extend(w_hovy.test)
 
         aux = [loaders.davidson(c, args.datadir, preprocessor = experiment,
-                                label_processor = loaders.davidson_to_binary, stratify = 'label',
+                                label_processor = None, stratify = 'label',
                                 skip_header = True),
-               waseem,
+               waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                             stratify = 'label')
                ]
 
     datasets = [main] + aux
