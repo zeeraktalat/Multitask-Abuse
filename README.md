@@ -14,7 +14,9 @@ In this project, we seek to improve classification performance for abusive langu
 
 - Datasets
 
-  - Sarcasm (https://arxiv.org/pdf/1704.05579.pdf)
+  - Sarcasm (https://nlds.soe.ucsc.edu/sarcasm2)
+
+  - Factual or Feeling based argument (https://nlds.soe.ucsc.edu/factfeel)
 
   - Offensive Language: Davidson et al.
 
@@ -22,7 +24,7 @@ In this project, we seek to improve classification performance for abusive langu
 
   - Toxicity (https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge/data)
 
-  - Sentiment (Semeval 2017 Task 4: http://alt.qcri.org/semeval2017/task4/index.php?id=results)
+  - Sentiment (Hovy Sentiment gender)
 
   - Moral Foundations Prediction (MFTC: https://psyarxiv.com/w4f72)
 
