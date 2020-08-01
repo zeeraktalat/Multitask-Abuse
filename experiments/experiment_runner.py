@@ -113,8 +113,9 @@ if __name__ == "__main__":
                                 skip_header = True),
                loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                      stratify = 'label')
-                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
-                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
+                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     if args.main == 'davidson':
@@ -135,8 +136,9 @@ if __name__ == "__main__":
                                stratify = 'label', skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                              stratify = 'label')
-                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
-                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
+                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     elif args.main == 'wulczyn':
@@ -156,8 +158,9 @@ if __name__ == "__main__":
                                 skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                              stratify = 'label')
-                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
-                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
+                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     datasets = [main] + aux
