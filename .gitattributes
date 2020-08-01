@@ -12,3 +12,8 @@ data/semeval_sentiment_twitter-2016train-A.tsv filter=lfs diff=lfs merge=lfs -te
 data/wulczyn_dev.tsv filter=lfs diff=lfs merge=lfs -text
 data/wulczyn_test.tsv filter=lfs diff=lfs merge=lfs -text
 data/wulczyn_train.tsv filter=lfs diff=lfs merge=lfs -text
+data/oraby_fact_feel_train.tsv filter=lfs diff=lfs merge=lfs -text
+data/oraby_sarcasm.csv filter=lfs diff=lfs merge=lfs -text
+data/oraby_fact_feel_dev.tsv filter=lfs diff=lfs merge=lfs -text
+data/oraby_fact_feel_test.tsv filter=lfs diff=lfs merge=lfs -text
+data/preotiuc_users.tsv filter=lfs diff=lfs merge=lfs -text
