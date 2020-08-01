@@ -12,7 +12,7 @@ from mlearn.utils.train import run_mtl_model as run_model
 from mlearn.utils.pipeline import process_and_batch, hyperparam_space
 
 
-csv.field_size_limit(151072)
+csv.field_size_limit(500000)
 
 
 if __name__ == "__main__":
@@ -106,7 +106,6 @@ if __name__ == "__main__":
         main.dev.extend(other.dev)
         main.test.extend(other.test)
 
-        breakpoint()
         aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
                                skip_header = True),
                loaders.davidson(c, args.datadir, preprocessor = experiment,
@@ -114,6 +113,8 @@ if __name__ == "__main__":
                                 skip_header = True),
                loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                      stratify = 'label')
+                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
                ]
 
     if args.main == 'davidson':
@@ -134,6 +135,8 @@ if __name__ == "__main__":
                                stratify = 'label', skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                              stratify = 'label')
+                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
                ]
 
     elif args.main == 'wulczyn':
@@ -153,6 +156,8 @@ if __name__ == "__main__":
                                 skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                              stratify = 'label')
+                oraby_sarcasm = loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                oraby_fact_feel = loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment)
                ]
 
     datasets = [main] + aux
@@ -263,10 +268,11 @@ if __name__ == "__main__":
                 train_args.update(parameters)
                 if 'hidden' in train_args:
                     train_args['hidden_dims'] = train_args['hidden']
+                    del train_args['hidden']
                 elif 'embedding' in train_args:
                     train_args['embedding_dims'] = train_args['embedding']
+                    del train_args['embedding']
                 train_args['shared_dim'] = train_args['shared']
-                train_args
 
                 # hyper_info = ['Batch size', '# Epochs', 'Learning Rate']
                 train_args['hyper_info'] = [batch_size, train_args['epochs'], train_args['learning_rate']]
