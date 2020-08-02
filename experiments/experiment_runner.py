@@ -12,7 +12,7 @@ from mlearn.utils.train import run_mtl_model as run_model
 from mlearn.utils.pipeline import process_and_batch, hyperparam_space
 
 
-csv.field_size_limit(500000)
+csv.field_size_limit(800000)
 
 
 if __name__ == "__main__":
@@ -112,10 +112,10 @@ if __name__ == "__main__":
                                 label_processor = None, stratify = 'label',
                                 skip_header = True),
                loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label')
-                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
-                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
-                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                                     stratify = 'label'),
+               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     if args.main == 'davidson':
@@ -135,10 +135,10 @@ if __name__ == "__main__":
         aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment,
                                stratify = 'label', skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                             stratify = 'label')
-                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
-                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
-                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                                             stratify = 'label'),
+               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     elif args.main == 'wulczyn':
@@ -157,10 +157,10 @@ if __name__ == "__main__":
                                 label_processor = None, stratify = 'label',
                                 skip_header = True),
                waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                             stratify = 'label')
-                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
-                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
-                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
+                                             stratify = 'label'),
+               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
+               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
+               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     datasets = [main] + aux
