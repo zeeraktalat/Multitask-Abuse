@@ -1,0 +1,1 @@
+Timestamp	Main task	Tasks	Batch size	# Epochs	Learning Rate	Model	Input dim	Embedding dim	Hidden dim	Output dim	Dropout	nonlinearity	accuracy	precision	recall	f1-score	loss
