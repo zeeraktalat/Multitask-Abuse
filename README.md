@@ -10,7 +10,11 @@ In this project, we seek to improve classification performance for abusive langu
 
     - Multilabel prediction
 
-  - Create model which trains on a randomly assigned task but evaluates on hate speech
+  - Try setting aux task weights based on how hard tasks are on the fly
+
+  - Try with BPE (as en encoder)
+
+  - Try with LIWC for every task
 
 - Datasets
 
