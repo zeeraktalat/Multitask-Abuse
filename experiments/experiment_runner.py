@@ -12,7 +12,7 @@ from mlearn.utils.train import run_mtl_model as run_model
 from mlearn.utils.pipeline import process_and_batch, hyperparam_space
 
 
-csv.field_size_limit(800000)
+csv.field_size_limit(1000000)
 
 
 if __name__ == "__main__":
