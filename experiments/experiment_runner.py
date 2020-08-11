@@ -111,8 +111,8 @@ if __name__ == "__main__":
                loaders.davidson(c, args.datadir, preprocessor = experiment,
                                 label_processor = None, stratify = 'label',
                                 skip_header = True),
-               loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label'),
+               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
