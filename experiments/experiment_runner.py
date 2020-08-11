@@ -1,6 +1,5 @@
 import os
 import csv
-import wandb
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -67,8 +66,6 @@ if __name__ == "__main__":
     parser.add_argument('--cfg', action = ActionConfigFile, default = None)
 
     args = parser.parse_args()
-
-    wandb.init(project='test')
 
     if 'f1' in args.metrics + [args.display, args.stop_metric]:
         for i, m in enumerate(args.metrics):
