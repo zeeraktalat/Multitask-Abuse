@@ -1,6 +1,7 @@
 import os
 import csv
 import torch
+import optuna
 import numpy as np
 from tqdm import tqdm
 import mlearn.data.loaders as loaders
@@ -9,10 +10,72 @@ import mlearn.modeling.multitask as mod_lib
 from mlearn.data.clean import Cleaner, Preprocessors
 from jsonargparse import ArgumentParser, ActionConfigFile
 from mlearn.utils.train import run_mtl_model as run_model
-from mlearn.utils.pipeline import process_and_batch, hyperparam_space
+from mlearn.utils.pipeline import process_and_batch, param_selection
 
 
-csv.field_size_limit(1000000)
+def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling: dict, direction: str):
+    """
+    The function that contains all loading and setting of values and running the sweeps.
+
+    :trial: The Optuna trial.
+    :training (dict): Dictionary containing training modeling.
+    :datasets (list): List of datasets objects.
+    :params (dict): A dictionary of the different tunable parameters and their values.
+    :model: The model to train.
+    :modeling (dict): The arguments for the model and metrics objects.
+    """
+    optimisable = param_selection(trial, params)
+
+    # TODO Think of a way to not hardcode this.
+    training.update(dict(
+        batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
+                    for dataset in datasets],
+        hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
+        embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
+        shared_dim = optimisable['shared'],
+        hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
+        dropout = optimisable['dropout'],
+        nonlinearity = optimisable['nonlinearity'],
+        epochs = optimisable['epochs'],
+        hyperopt = trial
+    ))
+    training['model'] = model(**training)
+    training.update(dict(
+        loss = modeling['loss'](),
+        optimizer = modeling['optimizer'](training['model'].parameters(), optimisable['learning_rate']),
+        metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
+        dev_metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop'])
+    ))
+
+    run_model(train = True, writer = modeling['train_writer'], **training)
+
+    if direction == 'minimize':
+        metric = training['dev_metrics'].loss
+    else:
+        metric = np.mean(training['dev_metrics'].scores[modeling['display']])
+
+    eval = dict(
+        model = training['model'],
+        batchers = modeling['test_batcher'],
+        loss = training['loss'],
+        metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
+        gpu = training['gpu'],
+        data = modeling['main'].test,
+        dataset = modeling['main'],
+        hyper_info = training['hyper_info'],
+        model_hdr = training['model_hdr'],
+        metric_hdr = training['metric_hdr'],
+        main_name = training['main_name'],
+        data_name = training['main_name'],
+        train_field = 'text',
+        label_field = 'label',
+        store = False,
+        mtl = 0
+    )
+
+    run_model(train = False, writer = modeling['test_writer'], pred_writer = None, **eval)
+
+    return metric
 
 
 if __name__ == "__main__":
@@ -47,7 +110,7 @@ if __name__ == "__main__":
     # Model (hyper) parameters
     parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
     parser.add_argument("--batch_size", help = "Set the batch size.", default = [64], type = int, nargs = '+')
-    parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0], type = float, nargs = '+')
+    parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
     parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
                         type = float, nargs = '+')
     parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = ['tanh'],
@@ -76,26 +139,18 @@ if __name__ == "__main__":
         if args.stop_metric == 'f1':
             args.display = 'f1-score'
 
-    if args.encoding == 'onehot':
-        onehot = True
-    elif args.encoding == 'embedding':
-        onehot = False
-
     # Set seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
+    csv.field_size_limit(1000000)
 
+    # Initialize experiment
     c = Cleaner(args.cleaners)
     p = Preprocessors(args.datadir)
-
     experiment = p.word_token
-
-    # Define arg dictionaries
-    train_args = {}
-    model_args = {}
+    onehot = True if args.encoding == 'onehot' else False
 
     # Load datasets
-    # TODO write loaders for all other datasets.
     if 'waseem' in args.main:  # Waseem is the main task
         main = loaders.waseem(c, args.datadir, preprocessor = experiment,
                                label_processor = None, stratify = 'label')
@@ -172,18 +227,90 @@ if __name__ == "__main__":
         dataset.build_token_vocab(dataset.data)
         dataset.build_label_vocab(dataset.data)
 
-    # Batch dev and test
-    train_args['dev'] = process_and_batch(main, main.dev, 64, onehot)
-    test_batcher = process_and_batch(main, main.test, 64, onehot)
+    # Open output files
+    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
+    enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
+    pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
-    # Set input and ouput dims
-    train_args['input_dims'] = [dataset.vocab_size() for dataset in datasets]
-    train_args['output_dims'] = [dataset.label_count() for dataset in datasets]
-    train_args['main_name'] = main.name
+    train_writer = csv.writer(open(f"{base}_train.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    test_writer = csv.writer(open(f"{base}_test.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    pred_writer = csv.writer(open(f"{base}_preds.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
+    batch_writer = csv.writer(open(f"{base}_batch.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
 
-    # Set number of batches per epoch and weight of each task
-    train_args['batches_per_epoch'] = args.batches_epoch
-    train_args['loss_weights'] = args.loss_weights
+    model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
+
+    if enc == 'w':
+        metric_hdr = args.metrics + ['loss']
+        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning rate'] + model_hdr
+        hdr += metric_hdr
+        test_writer.writerow(hdr)  # Don't include dev columns when writing test
+        hdr += [f"dev {m}" for m in metric_hdr]
+        train_writer.writerow(hdr)
+
+        # Batch hdr
+        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task', 'Batch size', '# Epochs', 'Learning rate']
+        batch_hdr += model_hdr + metric_hdr
+        batch_writer.writerow(batch_hdr)
+
+    # Define arguments
+    train_args = dict(
+        # For writers
+        model_hdr = model_hdr,
+        metric_hdr = args.metrics + ["loss"],
+        batch_writer = batch_writer,
+
+        # Batch dev
+        dev = process_and_batch(main, main.dev, 64, onehot),
+
+        # Set model dimensionality
+        input_dims = [dataset.vocab_size() for dataset in datasets],
+        output_dims = [dataset.label_count() for dataset in datasets],
+        num_layers = 1,  # LSTM
+        batch_first = True,
+        early_stopping = args.patience,
+
+        # Name of main task
+        main_name = main.name,
+        batches_per_epoch = args.batches_epoch,  # Set batches per epoch
+        loss_weights = args.loss_weights,  # Set weight of each task
+
+        # Meta information
+        shuffle = args.shuffle,
+        gpu = args.gpu,
+        save_path = f"{args.save_model}{args.main}_{args.experiment}_best",
+        low = True if args.stop_metric == "loss" else False,
+        data_name = "_".join([data.name.split()[0] for data in datasets])
+    )
+
+    # Select optimizer and losses
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD
+    elif args.optimizer == 'asgd':
+        optimizer = torch.optim.ASGD
+    elif args.optimizer == 'adamw':
+        optimizer = torch.optim.AdamW
+
+    # Info about losses: https://bit.ly/3irxvYK
+    if args.loss == 'nlll':
+        loss = torch.nn.NLLLoss
+    elif args.loss == 'crossentropy':
+        loss = torch.nn.CrossEntropyLoss
+
+    modeling = dict(
+        loss = loss,
+        optimizer = optimizer,
+        metrics = args.metrics,
+        display = args.display,
+        stop = args.stop_metric,
+        test_batcher = process_and_batch(main, main.test, 64, onehot),
+        main = main,
+        batch_writer = batch_writer,
+        train_writer = train_writer,
+        test_writer = test_writer,
+        pred_writer = None,
+    )
 
     # Set models to iterate over
     models = []
@@ -196,117 +323,23 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError
 
-    # Select optimizer
-    if args.optimizer == 'adam':
-        model_args['optimizer'] = torch.optim.Adam
-    elif args.optimizer == 'sgd':
-        model_args['optimizer'] = torch.optim.SGD
-    elif args.optimizer == 'asgd':
-        model_args['optimizer'] = torch.optim.ASGD
-    elif args.optimizer == 'adamw':
-        model_args['optimizer'] = torch.optim.AdamW
-
-    # Explains losses:
-    # https://medium.com/udacity-pytorch-challengers/a-brief-overview-of-loss-functions-in-pytorch-c0ddb78068f7
-    # Set loss
-    if args.loss == 'nlll':
-        model_args['loss'] = torch.nn.NLLLoss
-    elif args.loss == 'crossentropy':
-        model_args['loss'] = torch.nn.CrossEntropyLoss
-
-    # Open output files
-    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
-    enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
-    pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
-
-    train_writer = csv.writer(open(f"{base}_train.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    test_writer = csv.writer(open(f"{base}_test.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    pred_writer = csv.writer(open(f"{base}_preds.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
-    batch_writer = csv.writer(open(f"{base}_batch.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-
-    model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
-    train_args.update({'model_hdr': model_hdr, 'metric_hdr': args.metrics + ['loss'], 'batch_writer': batch_writer})
-
-    if enc == 'w':
-        metric_hdr = args.metrics + ['loss']
-        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning rate'] + model_hdr
-        hdr += metric_hdr
-        test_writer.writerow(hdr)  # Don't include dev columns when writing test
-        train_writer.writerow(hdr)
-
-        # Batch hdr
-        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task', 'Batch size', '# Epochs', 'Learning rate']
-        batch_hdr += model_hdr + metric_hdr
-        batch_writer.writerow(batch_hdr)
-
     pred_metric_hdr = args.metrics + ['loss']
     if pred_enc == 'w':
         hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
         hdr += ['Label', 'Prediction']
         pred_writer.writerow(hdr)
 
-    # Get hyper-parameter combinations
-    base_param = args.hyperparams.pop()
-    search_space = [{base_param: val} for val in getattr(args, base_param)]
-    hyper_parameters = [(param, getattr(args, param)) for param in args.hyperparams]
+    with tqdm(models, desc = "Model Iterator") as m_loop:
+        params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
+        direction = 'minimize' if args.display == 'loss' else 'maximize'
+        study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
+        trial_file = open(f"{base}.trials", 'a', encoding = 'utf-8')
 
-    train_args.update({'num_layers': 1,
-                       'shuffle': args.shuffle,
-                       'batch_first': True,
-                       'gpu': args.gpu,
-                       'save_path': f"{args.save_model}{args.main}_{args.experiment}_best",
-                       'early_stopping': args.patience,
-                       'low': True if args.stop_metric == 'loss' else False,
-                       'data_name': "_".join([data.name.split()[0] for data in datasets])
-                       })
+        for m in models:
+            study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
+                           n_trials = 200, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
 
-    with tqdm(args.batch_size, desc = "Batch Size Iterator") as b_loop,\
-         tqdm(models, desc = "Model Iterator") as m_loop:
-        for batch_size in b_loop:
-            b_loop.set_postfix(batches = batch_size)
-            train_args['batchers'] = [process_and_batch(dataset, dataset.data, batch_size, onehot)
-                                      for dataset in datasets]
-
-            for parameters in tqdm(hyperparam_space(search_space, hyper_parameters), desc = "Hyper-parameter Iterator"):
-                train_args.update(parameters)
-                if 'hidden' in train_args:
-                    train_args['hidden_dims'] = train_args['hidden']
-                    del train_args['hidden']
-                elif 'embedding' in train_args:
-                    train_args['embedding_dims'] = train_args['embedding']
-                    del train_args['embedding']
-                train_args['shared_dim'] = train_args['shared']
-
-                # hyper_info = ['Batch size', '# Epochs', 'Learning Rate']
-                train_args['hyper_info'] = [batch_size, train_args['epochs'], train_args['learning_rate']]
-                for model in m_loop:
-                    # Intialize model, loss, optimizer, and metrics
-                    train_args['model'] = model(**train_args)
-                    train_args['loss'] = model_args['loss']()
-                    train_args['optimizer'] = model_args['optimizer'](train_args['model'].parameters(),
-                                                                      train_args['learning_rate'])
-
-                    train_args['metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
-                    train_args['dev_metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
-                    m_loop.set_postfix(model = train_args['model'].name)  # Cur model name
-
-                    run_model(train = True, writer = train_writer, **train_args)
-
-                    eval_args = {'model': train_args['model'],
-                                 'batchers': test_batcher,
-                                 'loss': train_args['loss'],
-                                 'metrics': Metrics(args.metrics, args.display, args.stop_metric),
-                                 'gpu': args.gpu,
-                                 'data': main.test,
-                                 'dataset': main,
-                                 'hyper_info': train_args['hyper_info'],
-                                 'model_hdr': train_args['model_hdr'],
-                                 'metric_hdr': train_args['metric_hdr'],
-                                 'main_name': train_args['main_name'],
-                                 'data_name': main.name,
-                                 'train_field': 'text',
-                                 'label_field': 'label',
-                                 'store': True,
-                                 'mtl': 0
-                                 }
-                    run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
+            print(f"Model: {m}", file = trial_file)
+            print(f"Best parameters: {study.best_params}", file = trial_file)
+            print(f"Best trial: {study.best_trial}", file = trial_file)
+            print(f"All trials: {study.trials}")
