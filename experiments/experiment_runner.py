@@ -338,7 +338,7 @@ if __name__ == "__main__":
 
         for m in models:
             study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
-                           n_trials = 10, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+                           n_trials = 200, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
 
             print(f"Model: {m}", file = trial_file)
             print(f"Best parameters: {study.best_params}", file = trial_file)
