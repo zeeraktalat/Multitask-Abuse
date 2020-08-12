@@ -232,10 +232,10 @@ if __name__ == "__main__":
     enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
     pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
-    train_writer = csv.writer(open(f"{base}_train.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    test_writer = csv.writer(open(f"{base}_test.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    pred_writer = csv.writer(open(f"{base}_preds.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
-    batch_writer = csv.writer(open(f"{base}_batch.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    train_writer = csv.writer(open(f"{base}_train.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    test_writer = csv.writer(open(f"{base}_test.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
+    batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
 
     model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
 
@@ -337,7 +337,7 @@ if __name__ == "__main__":
 
         for m in models:
             study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
-                           n_trials = 200, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+                           n_trials = 100, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
 
             print(f"Model: {m}", file = trial_file)
             print(f"Best parameters: {study.best_params}", file = trial_file)
