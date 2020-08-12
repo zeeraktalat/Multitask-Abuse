@@ -152,19 +152,13 @@ if __name__ == "__main__":
 
     # Load datasets
     if 'waseem' in args.main:  # Waseem is the main task
-        main = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                               label_processor = None, stratify = 'label')
-        other = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                    label_processor = None,
-                                    stratify = 'label')
-        main.data.extend(other.data)
-        main.dev.extend(other.dev)
-        main.test.extend(other.test)
+        main = loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label')
 
-        aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
+        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                   stratify = 'label'),
+               loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
                                skip_header = True),
-               loaders.davidson(c, args.datadir, preprocessor = experiment,
-                                label_processor = None, stratify = 'label',
+               loaders.davidson(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label',
                                 skip_header = True),
                # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                #                       stratify = 'label'),
@@ -178,18 +172,10 @@ if __name__ == "__main__":
                                 label_processor = None,
                                 stratify = 'label', skip_header = True)
 
-        waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = None, stratify = 'label')
-        w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                     label_processor = None,
-                                     stratify = 'label')
-        waseem.data.extend(w_hovy.data)
-        waseem.dev.extend(w_hovy.dev)
-        waseem.test.extend(w_hovy.test)
-
-        aux = [loaders.wulczyn(c, args.datadir, preprocessor = experiment,
-                               stratify = 'label', skip_header = True),
-               waseem,
+        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                   stratify = 'label'),
+               loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label'),
+               loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True),
                # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                #                       stratify = 'label'),
                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
@@ -209,11 +195,13 @@ if __name__ == "__main__":
         waseem.dev.extend(w_hovy.dev)
         waseem.test.extend(w_hovy.test)
 
-        aux = [loaders.davidson(c, args.datadir, preprocessor = experiment,
-                                label_processor = None, stratify = 'label',
+        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+                                   stratify = 'label'),
+               loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label'),
+               loaders.davidson(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label',
                                 skip_header = True),
-               waseem, loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                             stratify = 'label'),
+               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
