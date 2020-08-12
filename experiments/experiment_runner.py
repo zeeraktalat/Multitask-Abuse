@@ -25,7 +25,8 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
     :modeling (dict): The arguments for the model and metrics objects.
     """
     optimisable = param_selection(trial, params)
-    # Create batches
+
+    # TODO Think of a way to not hardcode this.
     training.update(dict(
         batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
                     for dataset in datasets],
@@ -35,7 +36,8 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
         hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
         dropout = optimisable['dropout'],
         nonlinearity = optimisable['nonlinearity'],
-        epochs = optimisable['epochs']
+        epochs = optimisable['epochs'],
+        hyperopt = trial
     ))
     training['model'] = model(**training)
     training.update(dict(
@@ -44,6 +46,7 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
         metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
         dev_metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop'])
     ))
+
     run_model(train = True, writer = modeling['train_writer'], **training)
 
     if direction == 'minimize':
@@ -55,22 +58,22 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
         model = training['model'],
         batchers = modeling['test_batcher'],
         loss = training['loss'],
-        metrics = Metrics(modeling.metrics, modeling.display, modeling.stop_metric),
+        metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
         gpu = training['gpu'],
-        data = main.test,
-        dataset = main,
+        data = modeling['main'].test,
+        dataset = modeling['main'],
         hyper_info = training['hyper_info'],
         model_hdr = training['model_hdr'],
         metric_hdr = training['metric_hdr'],
         main_name = training['main_name'],
-        data_name = main.name,
+        data_name = training['main_name'],
         train_field = 'text',
         label_field = 'label',
         store = False,
         mtl = 0
     )
 
-    run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval)
+    run_model(train = False, writer = modeling['test_writer'], pred_writer = None, **eval)
 
     return metric
 
@@ -163,12 +166,12 @@ if __name__ == "__main__":
                loaders.davidson(c, args.datadir, preprocessor = experiment,
                                 label_processor = None, stratify = 'label',
                                 skip_header = True),
-               loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label'),
+               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label',
                                      skip_header = True),
                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment, skip_header = True),
-               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
+               # loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
                ]
 
     if args.main == 'davidson':
@@ -251,54 +254,34 @@ if __name__ == "__main__":
         batch_writer.writerow(batch_hdr)
 
     # Define arguments
-    train_args = {}
-    modeling = {}
+    train_args = dict(
+        # For writers
+        model_hdr = model_hdr,
+        metric_hdr = args.metrics + ["loss"],
+        batch_writer = batch_writer,
 
-    train_args.update({'model_hdr': model_hdr, 'metric_hdr': args.metrics + ['loss'], 'batch_writer': batch_writer})
-    # Batch dev and test
-    train_args['dev'] = process_and_batch(main, main.dev, 64, onehot)
-    modeling['test_batcher'] = process_and_batch(main, main.test, 64, onehot)
+        # Batch dev
+        dev = process_and_batch(main, main.dev, 64, onehot),
 
-    # Set input and ouput dims
-    train_args['input_dims'] = [dataset.vocab_size() for dataset in datasets]
-    train_args['output_dims'] = [dataset.label_count() for dataset in datasets]
-    train_args['main_name'] = main.name
+        # Set model dimensionality
+        input_dims = [dataset.vocab_size() for dataset in datasets],
+        output_dims = [dataset.label_count() for dataset in datasets],
+        num_layers = 1,  # LSTM
+        batch_first = True,
+        early_stopping = args.patience,
 
-    # Set number of batches per epoch and weight of each task
-    train_args['batches_per_epoch'] = args.batches_epoch
-    train_args['loss_weights'] = args.loss_weights
+        # Name of main task
+        main_name = main.name,
+        batches_per_epoch = args.batches_epoch,  # Set batches per epoch
+        loss_weights = args.loss_weights,  # Set weight of each task
 
-    # Set models to iterate over
-    models = []
-    for m in args.model:
-        if m == 'mlp':
-            if onehot:
-                models.append(mod_lib.OnehotMLPClassifier)
-            else:
-                models.append(mod_lib.EmbeddingMLPClassifier)
-        else:
-            raise NotImplementedError
-
-    pred_metric_hdr = args.metrics + ['loss']
-    if pred_enc == 'w':
-        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
-        hdr += ['Label', 'Prediction']
-        pred_writer.writerow(hdr)
-
-    # Get hyper-parameter combinations
-    base_param = args.hyperparams.pop()
-    search_space = [{base_param: val} for val in getattr(args, base_param)]
-    hyper_parameters = [(param, getattr(args, param)) for param in args.hyperparams]
-
-    train_args.update({'num_layers': 1,
-                       'shuffle': args.shuffle,
-                       'batch_first': True,
-                       'gpu': args.gpu,
-                       'save_path': f"{args.save_model}{args.main}_{args.experiment}_best",
-                       'early_stopping': args.patience,
-                       'low': True if args.stop_metric == 'loss' else False,
-                       'data_name': "_".join([data.name.split()[0] for data in datasets])
-                       })
+        # Meta information
+        shuffle = args.shuffle,
+        gpu = args.gpu,
+        save_path = f"{args.save_model}{args.main}_{args.experiment}_best",
+        low = True if args.stop_metric == "loss" else False,
+        data_name = "_".join([data.name.split()[0] for data in datasets])
+    )
 
     # Select optimizer and losses
     if args.optimizer == 'adam':
@@ -321,14 +304,43 @@ if __name__ == "__main__":
         optimizer = optimizer,
         metrics = args.metrics,
         display = args.display,
-        stop = args.stop
+        stop = args.stop_metric,
+        test_batcher = process_and_batch(main, main.test, 64, onehot),
+        main = main,
+        batch_writer = batch_writer,
+        train_writer = train_writer,
+        test_writer = test_writer,
+        pred_writer = None,
     )
 
+    # Set models to iterate over
+    models = []
+    for m in args.model:
+        if m == 'mlp':
+            if onehot:
+                models.append(mod_lib.OnehotMLPClassifier)
+            else:
+                models.append(mod_lib.EmbeddingMLPClassifier)
+        else:
+            raise NotImplementedError
+
+    pred_metric_hdr = args.metrics + ['loss']
+    if pred_enc == 'w':
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr += ['Label', 'Prediction']
+        pred_writer.writerow(hdr)
+
     with tqdm(models, desc = "Model Iterator") as m_loop:
-        params = {p: val for val in getattr(args, args.hyperparams)}  # Get hyper-parameters to search
+        params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
         direction = 'minimize' if args.display == 'loss' else 'maximize'
         study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
+        trial_file = open(f"{base}.trials", 'a', encoding = 'utf-8')
 
-        for model in models:
-            study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, model, modeling, main, direction),
-                           n_trials = 100, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+        for m in models:
+            study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
+                           n_trials = 10, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+
+            print(f"Model: {m}", file = trial_file)
+            print(f"Best parameters: {study.best_params}", file = trial_file)
+            print(f"Best trial: {study.best_trial}", file = trial_file)
+            print(f"All trials: {study.trials}")
