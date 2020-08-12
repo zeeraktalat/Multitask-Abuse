@@ -30,8 +30,8 @@ patience: 15
 # Hyper parameters
 hyperparams: [batch_size, epochs, learning_rate, dropout, embedding, shared, nonlinearity]
 batches_epoch: 500
-# loss_weights: [0.8, 0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.1167]
-loss_weights: [0.8, 0.1667, 0.1667, 0.1667, 0.1667, 0.1167]
+# loss_weights: [7, 1, 1, 1, 1, 1, 1]
+loss_weights: [6, 1, 1, 1, 1, 1]
 epochs: [100, 200]
 batch_size: [16, 32, 64]
 learning_rate: [0.1, 0.01, 0.001]
