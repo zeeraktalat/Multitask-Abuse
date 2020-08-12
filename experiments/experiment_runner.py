@@ -1,6 +1,7 @@
 import os
 import csv
 import torch
+import optuna
 import numpy as np
 from tqdm import tqdm
 import mlearn.data.loaders as loaders
@@ -9,10 +10,10 @@ import mlearn.modeling.multitask as mod_lib
 from mlearn.data.clean import Cleaner, Preprocessors
 from jsonargparse import ArgumentParser, ActionConfigFile
 from mlearn.utils.train import run_mtl_model as run_model
-from mlearn.utils.pipeline import process_and_batch, hyperparam_space, param_selection
+from mlearn.utils.pipeline import process_and_batch, param_selection
 
 
-def min_sweeper(trial, train_args: dict, datasets: list, params: dict, model, args: dict):
+def min_sweeper(trial, train_args: dict, datasets: list, params: dict, model, args: dict, main):
     """
     The function that contains all loading and setting of values.
 
@@ -22,29 +23,50 @@ def min_sweeper(trial, train_args: dict, datasets: list, params: dict, model, ar
     :params (dict): A dictionary of the different tunable parameters and their values.
     :model: The model to train.
     :args (dict): The arguments for the model and metrics objects.
+    :main: The main dataset.
     """
     optimisable = param_selection(trial, params)
     # Create batches
     train_args.update(dict(
-                       batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
-                                   for dataset in datasets],
-                       hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
-                       embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
-                       shared_dim = optimisable['shared'],
-                       hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
-                       dropout = optimisable['dropout'],
-                       nonlinearity = optimisable['nonlinearity'],
-                       epochs = optimisable['epochs']
-                       ))
+        batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
+                    for dataset in datasets],
+        hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
+        embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
+        shared_dim = optimisable['shared'],
+        hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
+        dropout = optimisable['dropout'],
+        nonlinearity = optimisable['nonlinearity'],
+        epochs = optimisable['epochs']
+    ))
     train_args['model'] = model(**train_args)
     train_args.update(dict(
-                       loss = args['loss'](),
-                       optimizer = args['optimizer'](train_args['model'].parameters(), optimisable['learning_rate']),
-                       metrics = Metrics(args['metrics'], args['display'], args['stop']),
-                       dev_metrics = Metrics(args['metrics'], args['display'], args['stop'])
-                       ))
+        loss = args['loss'](),
+        optimizer = args['optimizer'](train_args['model'].parameters(), optimisable['learning_rate']),
+        metrics = Metrics(args['metrics'], args['display'], args['stop']),
+        dev_metrics = Metrics(args['metrics'], args['display'], args['stop'])
+    ))
     run_model(train = True, writer = args['train_writer'], **train_args)
 
+    eval_args = dict(
+        model = train_args['model'],
+        batchers = test_batcher,
+        loss = train_args['loss'],
+        metrics = Metrics(args.metrics, args.display, args.stop_metric),
+        gpu = train_args['gpu'],
+        data = main.test,
+        dataset = main,
+        hyper_info = train_args['hyper_info'],
+        model_hdr = train_args['model_hdr'],
+        metric_hdr = train_args['metric_hdr'],
+        main_name = train_args['main_name'],
+        data_name = main.name,
+        train_field = 'text',
+        label_field = 'label',
+        store = False,
+        mtl = 0
+    )
+
+    run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
     return train_args['dev_metrics'].loss
 
 
@@ -62,24 +84,46 @@ def max_sweeper(trial, train_args: dict, datasets: list, params: dict, model, ar
     optimisable = param_selection(trial, params)
     # Create batches
     train_args.update(dict(
-                       batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
-                                   for dataset in datasets],
-                       hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
-                       embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
-                       shared_dim = optimisable['shared'],
-                       hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
-                       dropout = optimisable['dropout'],
-                       nonlinearity = optimisable['nonlinearity'],
-                       epochs = optimisable['epochs']
-                       ))
+        batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
+                    for dataset in datasets],
+        hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
+        embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
+        shared_dim = optimisable['shared'],
+        hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
+        dropout = optimisable['dropout'],
+        nonlinearity = optimisable['nonlinearity'],
+        epochs = optimisable['epochs']
+    ))
     train_args['model'] = model(**train_args)
     train_args.update(dict(
-                       loss = args['loss'](),
-                       optimizer = args['optimizer'](train_args['model'].parameters(), optimisable['learning_rate']),
-                       metrics = Metrics(args['metrics'], args['display'], args['stop']),
-                       dev_metrics = Metrics(args['metrics'], args['display'], args['stop'])
-                       ))
+        loss = args['loss'](),
+        optimizer = args['optimizer'](train_args['model'].parameters(), optimisable['learning_rate']),
+        metrics = Metrics(args['metrics'], args['display'], args['stop']),
+        dev_metrics = Metrics(args['metrics'], args['display'], args['stop'])
+    ))
     run_model(train = True, writer = args['train_writer'], **train_args)
+
+    eval_args = dict(
+        model = train_args['model'],
+        batchers = test_batcher,
+        loss = train_args['loss'],
+        metrics = Metrics(args.metrics, args.display, args.stop_metric),
+        gpu = train_args['gpu'],
+        data = main.test,
+        dataset = main,
+        hyper_info = train_args['hyper_info'],
+        model_hdr = train_args['model_hdr'],
+        metric_hdr = train_args['metric_hdr'],
+        main_name = train_args['main_name'],
+        data_name = main.name,
+        train_field = 'text',
+        label_field = 'label',
+        store = False,
+        mtl = 0
+    )
+
+    run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
+    return np.mean(train_args['dev_metrics'].scores[args['display']])
 
 
 if __name__ == "__main__":
@@ -181,7 +225,7 @@ if __name__ == "__main__":
                loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
                                      stratify = 'label'),
                loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label',
-                   skip_header = True),
+                                     skip_header = True),
                loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment, skip_header = True),
                loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
                ]
@@ -331,68 +375,13 @@ if __name__ == "__main__":
     # Dict containing hyper parameter searches and values
     params = {}
 
-    direction = args.direction
-
-    study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
-
-    if direction == 'minimize'
-        study.optimize(lambda: trial: min_sweeper(trial, train_args, datasets, params, args), n_trials = 100,
-                       gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
-    else:
-        study.optimize(lambda: trial: max_sweeper(trial, train_args, datasets, params, args), n_trials = 100,
-                       gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
-
-
     with tqdm(models, desc = "Model Iterator") as m_loop:
+        direction = 'minimize' if args.display == 'loss' else 'maximize'
+        study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
 
-    #
-    # with tqdm(args.batch_size, desc = "Batch Size Iterator") as b_loop,\
-    #      tqdm(models, desc = "Model Iterator") as m_loop:
-    #     for batch_size in b_loop:
-    #         b_loop.set_postfix(batches = batch_size)
-    #         train_args['batchers'] = [process_and_batch(dataset, dataset.data, batch_size, onehot)
-    #                                   for dataset in datasets]
-    #
-    #         for parameters in tqdm(hyperparam_space(search_space, hyper_parameters), desc = "Hyper-parameter Iterator"):
-    #             train_args.update(parameters)
-    #             if 'hidden' in train_args:
-    #                 train_args['hidden_dims'] = train_args['hidden']
-    #                 del train_args['hidden']
-    #             elif 'embedding' in train_args:
-    #                 train_args['embedding_dims'] = train_args['embedding']
-    #                 del train_args['embedding']
-    #             train_args['shared_dim'] = train_args['shared']
-    #
-    #             # hyper_info = ['Batch size', '# Epochs', 'Learning Rate']
-    #             train_args['hyper_info'] = [batch_size, train_args['epochs'], train_args['learning_rate']]
-    #             for model in m_loop:
-    #                 # Intialize model, loss, optimizer, and metrics
-    #                 train_args['model'] = model(**train_args)
-    #                 train_args['loss'] = model_args['loss']()
-    #                 train_args['optimizer'] = model_args['optimizer'](train_args['model'].parameters(),
-    #                                                                   train_args['learning_rate'])
-    #
-    #                 train_args['metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
-    #                 train_args['dev_metrics'] = Metrics(args.metrics, args.display, args.stop_metric)
-    #                 m_loop.set_postfix(model = train_args['model'].name)  # Cur model name
-    #
-    #                 run_model(train = True, writer = train_writer, **train_args)
-    #
-    #                 eval_args = {'model': train_args['model'],
-    #                              'batchers': test_batcher,
-    #                              'loss': train_args['loss'],
-    #                              'metrics': Metrics(args.metrics, args.display, args.stop_metric),
-    #                              'gpu': args.gpu,
-    #                              'data': main.test,
-    #                              'dataset': main,
-    #                              'hyper_info': train_args['hyper_info'],
-    #                              'model_hdr': train_args['model_hdr'],
-    #                              'metric_hdr': train_args['metric_hdr'],
-    #                              'main_name': train_args['main_name'],
-    #                              'data_name': main.name,
-    #                              'train_field': 'text',
-    #                              'label_field': 'label',
-    #                              'store': True,
-    #                              'mtl': 0
-    #                              }
-    #                 run_model(train = False, writer = test_writer, pred_writer = pred_writer, **eval_args)
+        if direction == 'minimize':
+            study.optimize(lambda trial: min_sweeper(trial, train_args, datasets, params, args), n_trials = 100,
+                           gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+        else:
+            study.optimize(lambda trial: max_sweeper(trial, train_args, datasets, params, args), n_trials = 100,
+                           gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
