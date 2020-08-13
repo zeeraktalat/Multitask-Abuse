@@ -106,6 +106,8 @@ if __name__ == "__main__":
     parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
                         default = 'embedding', type = str.lower)
+    parser.add_argument('--tokenizer', help = "select the tokenizer to be used: Spacy, BPE", default = 'spacy',
+                        type = str.lower)
 
     # Model (hyper) parameters
     parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
@@ -150,61 +152,61 @@ if __name__ == "__main__":
     experiment = p.word_token
     onehot = True if args.encoding == 'onehot' else False
 
+    tokenizer = c.tokenize if args.tokenizer == 'spacy' else c.bpe_tokenize
+
     # Load datasets
     if 'waseem' in args.main:  # Waseem is the main task
-        main = loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label')
+        main = loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                              stratify = 'label')
 
-        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                    stratify = 'label'),
-               loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label',
+               loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
                                skip_header = True),
-               loaders.davidson(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label',
-                                skip_header = True),
-               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                stratify = 'label', skip_header = True),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                #                       stratify = 'label'),
-               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True),
-               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment, skip_header = True),
-               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
+               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                                     skip_header = True),
+               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, skip_header = True),
+               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                              skip_header = True)
                ]
 
     if args.main == 'davidson':
-        main = loaders.davidson(c, args.datadir, preprocessor = experiment,
+        main = loaders.davidson(tokenizer, args.datadir, preprocessor = experiment,
                                 label_processor = None,
                                 stratify = 'label', skip_header = True)
 
-        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                    stratify = 'label'),
-               loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label'),
-               loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True),
-               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                              stratify = 'label'),
+               loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                               skip_header = True),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                #                       stratify = 'label'),
-               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
-               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
-               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
+               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
+               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
+               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     elif args.main == 'wulczyn':
-        main = loaders.wulczyn(c, args.datadir, preprocessor = experiment, stratify = 'label', skip_header = True)
+        main = loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                               skip_header = True)
 
-        waseem = loaders.waseem(c, args.datadir, preprocessor = experiment,
-                                label_processor = None, stratify = 'label')
-        w_hovy = loaders.waseem_hovy(c, args.datadir, preprocessor = experiment,
-                                     label_processor = None,
-                                     stratify = 'label')
-        waseem.data.extend(w_hovy.data)
-        waseem.dev.extend(w_hovy.dev)
-        waseem.test.extend(w_hovy.test)
-
-        aux = [loaders.waseem_hovy(c, args.datadir, preprocessor = experiment, label_processor = None,
+        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                    stratify = 'label'),
-               loaders.waseem(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label'),
-               loaders.davidson(c, args.datadir, preprocessor = experiment, label_processor = None, stratify = 'label',
-                                skip_header = True),
-               # loaders.preotiuc_user(c, args.datadir, preprocessor = experiment, label_processor = None,
+               loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                              stratify = 'label'),
+               loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                stratify = 'label', skip_header = True),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                #                       stratify = 'label'),
-               loaders.oraby_sarcasm(c, args.datadir, preprocessor = experiment, stratify = 'label'),
-               loaders.oraby_fact_feel(c, args.datadir, preprocessor = experiment),
-               loaders.hoover(c, args.datadir, preprocessor = experiment, stratify = 'label')
+               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
+               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
+               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
                ]
 
     datasets = [main] + aux
