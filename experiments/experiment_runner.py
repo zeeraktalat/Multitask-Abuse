@@ -28,7 +28,7 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
 
     # TODO Think of a way to not hardcode this.
     training.update(dict(
-        batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], onehot)
+        batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], modeling['onehot'])
                     for dataset in datasets],
         hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
         embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
@@ -330,6 +330,7 @@ if __name__ == "__main__":
         loss = torch.nn.CrossEntropyLoss
 
     modeling = dict(
+        onehot = onehot,
         loss = loss,
         optimizer = optimizer,
         metrics = args.metrics,
