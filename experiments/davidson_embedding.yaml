@@ -7,6 +7,7 @@ save_model: results/models/
 results: results/
 gpu: True
 shuffle: True
+tokenizer: bpe
 
 # Experiment
 main: davidson
@@ -30,10 +31,9 @@ patience: 15
 # Hyper parameters
 hyperparams: [batch_size, epochs, learning_rate, dropout, embedding, shared, nonlinearity]
 batches_epoch: 500
-loss_weights: [6, 1, 1, 1, 1, 1, 1]
+loss_weights: [7, 1, 1, 1, 1, 1, 1, 1]
 epochs: [100, 200]
 batch_size: [16, 32, 64]
 learning_rate: [0.1, 0.01, 0.001]
 dropout: [0.1, 0.2, 0.3]
 embedding: [[100, 100, 100], [300, 300, 300]]
-
