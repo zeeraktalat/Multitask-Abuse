@@ -78,23 +78,50 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
     return metric
 
 
+def limiter(counts_dict: dict, limit: int, limit_type: str = 'freq'):
+    """
+    Limit the vocabulary of a dataset.
+
+    :counts_dict (dict): The counts object to limit.
+    :limit (int): The frequency or max number of tokens.
+    :type (str, default = freq): Limit based on frequency or max vocab size.
+    """
+    remaining, deleted = [], []
+    if limit_type == 'size':
+        most_common = dict(counts_dict.most_common(limit))
+
+    for token, frequency in counts_dict.items():
+        if limit_type == 'freq':
+            if frequency >= limit:
+                remaining.append(token)
+            else:
+                deleted.append(token)
+        elif limit_type == 'size':
+            if token in most_common:
+                remaining.append(token)
+            else:
+                deleted.append(token)
+    return remaining, deleted
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description = "Run Experiments using MTL.")
 
+    # For all modesl
     parser.add_argument("--main", help = "Choose train data: Davidson, Waseem, Waseem and Hovy, Wulczyn, and Garcia.",
                         type = str.lower, default = 'Davidson')
     parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", nargs = '+',
                         default = ['mlp'], type = str.lower)
     parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
     parser.add_argument("--results", help = "Set file to output results to.", default = 'results/')
+    parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/')
     parser.add_argument("--cleaners", help = "Set the cleaning routines to be used.", nargs = '+', default = None)
     parser.add_argument("--metrics", help = "Set the metrics to be used.", nargs = '+', default = ["f1"],
                         type = str.lower)
     parser.add_argument("--stop_metric", help = "Set the metric to be used for early stopping", default = "loss")
+    parser.add_argument("--display", help = "Metric to display in TQDM loops.", default = 'f1-score')
     parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best",
                         default = None, type = int)
-    parser.add_argument("--display", help = "Metric to display in TQDM loops.", default = 'f1-score')
-    parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/')
 
     # Model architecture
     parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [[100, 100, 100]], type = list,
@@ -159,10 +186,10 @@ if __name__ == "__main__":
         main = loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                               stratify = 'label')
 
-        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                   stratify = 'label'),
-               loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+        aux = [loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
                                skip_header = True),
+               loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                   stratify = 'label'),
                loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                 stratify = 'label', skip_header = True),
                loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
@@ -179,12 +206,12 @@ if __name__ == "__main__":
                                 label_processor = None,
                                 stratify = 'label', skip_header = True)
 
-        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+        aux = [loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                               skip_header = True),
+               loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                    stratify = 'label'),
                loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                               stratify = 'label'),
-               loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                               skip_header = True),
                loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                      stratify = 'label'),
                loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
@@ -217,6 +244,13 @@ if __name__ == "__main__":
     for dataset in datasets:
         dataset.build_token_vocab(dataset.data)
         dataset.build_label_vocab(dataset.data)
+
+    # Limit the Wulczyn and Preotiuc vocabularies to at least 3 instances.
+    preotiuc = aux[3]
+    preotiuc.limit_vocab(limiter, limit = 3, limit_type = 'freq')
+
+    wulczyn = aux[0] if args.main != 'wylczyn' else main
+    wulczyn.limit_vocab(limiter, limit = 3, limit_type = 'freq')
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
