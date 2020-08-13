@@ -277,6 +277,12 @@ if __name__ == "__main__":
         batch_hdr += model_hdr + metric_hdr
         batch_writer.writerow(batch_hdr)
 
+    pred_metric_hdr = args.metrics + ['loss']
+    if pred_enc == 'w':
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr += ['Label', 'Prediction']
+        pred_writer.writerow(hdr)
+
     # Define arguments
     train_args = dict(
         # For writers
@@ -347,12 +353,6 @@ if __name__ == "__main__":
                 models.append(mod_lib.EmbeddingMLPClassifier)
         else:
             raise NotImplementedError
-
-    pred_metric_hdr = args.metrics + ['loss']
-    if pred_enc == 'w':
-        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
-        hdr += ['Label', 'Prediction']
-        pred_writer.writerow(hdr)
 
     with tqdm(models, desc = "Model Iterator") as m_loop:
         params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
