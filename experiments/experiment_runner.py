@@ -172,6 +172,7 @@ if __name__ == "__main__":
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
     csv.field_size_limit(1000000)
+    torch.cuda.set_device(1)
 
     # Initialize experiment
     c = Cleaner(args.cleaners)
@@ -192,8 +193,8 @@ if __name__ == "__main__":
                                    stratify = 'label'),
                loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                 stratify = 'label', skip_header = True),
-               loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label'),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
                                      skip_header = True),
                loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, skip_header = True),
@@ -212,8 +213,8 @@ if __name__ == "__main__":
                                    stratify = 'label'),
                loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                               stratify = 'label'),
-               loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label'),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
                loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
                loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
@@ -229,8 +230,8 @@ if __name__ == "__main__":
                               stratify = 'label'),
                loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                 stratify = 'label', skip_header = True),
-               loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                     stratify = 'label'),
+               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+               #                       stratify = 'label'),
                loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
                loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
                loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
@@ -246,11 +247,11 @@ if __name__ == "__main__":
         dataset.build_label_vocab(dataset.data)
 
     # Limit the Wulczyn and Preotiuc vocabularies to at least 3 instances.
-    preotiuc = aux[3]
-    preotiuc.limit_vocab(limiter, limit = 3, limit_type = 'freq')
+    # preotiuc = aux[3]
+    # preotiuc.limit_vocab(limiter, limit = 3, limit_type = 'freq')
 
-    wulczyn = aux[0] if args.main != 'wylczyn' else main
-    wulczyn.limit_vocab(limiter, limit = 3, limit_type = 'freq')
+    # wulczyn = aux[0] if args.main != 'wylczyn' else main
+    # wulczyn.limit_vocab(limiter, limit = 3, limit_type = 'freq')
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
