@@ -369,4 +369,4 @@ if __name__ == "__main__":
             print(f"Model: {m}", file = trial_file)
             print(f"Best parameters: {study.best_params}", file = trial_file)
             print(f"Best trial: {study.best_trial}", file = trial_file)
-            print(f"All trials: {study.trials}")
+            print(f"All trials: {study.trials}", file = trial_file)
