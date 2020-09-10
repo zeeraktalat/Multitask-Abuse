@@ -172,7 +172,7 @@ if __name__ == "__main__":
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
     csv.field_size_limit(1000000)
-    torch.cuda.set_device(1)
+    torch.cuda.set_device(0)
 
     # Initialize experiment
     c = Cleaner(args.cleaners)
