@@ -354,7 +354,7 @@ if __name__ == "__main__":
             else:
                 models.append(mod_lib.EmbeddingMLPClassifier)
         else:
-            raise NotImplementedError
+            models.append(mod_lib.EmbeddingLSTMClassifier)
 
     with tqdm(models, desc = "Model Iterator") as m_loop:
         params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
@@ -362,7 +362,7 @@ if __name__ == "__main__":
         study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
         trial_file = open(f"{base}.trials", 'a', encoding = 'utf-8')
 
-        for m in models:
+        for m in m_loop:
             study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
                            n_trials = 100, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
 
