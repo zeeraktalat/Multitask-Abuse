@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Initialize experiment
     c = Cleaner(args.cleaners)
     p = Preprocessors(args.datadir)
-    experiment = p.word_token
+    experiment = p.select_experiment(args.experiment)
     onehot = True if args.encoding == 'onehot' else False
 
     tokenizer = c.tokenize if args.tokenizer == 'spacy' else c.bpe_tokenize
