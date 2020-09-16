@@ -25,15 +25,15 @@ nonlinearity: [tanh, relu]
 # Metrics, earlyss topping, etc.
 metrics: [accuracy, precision, recall, f1-score]
 display: f1-score
-stop_metric: loss
-patience: 15
+stop_metric: f1-score
+patience: 10
 
 # Hyper parameters
 hyperparams: [batch_size, epochs, learning_rate, dropout, embedding, shared, nonlinearity]
 batches_epoch: 500
-loss_weights: [7, 1, 1, 1, 1, 1, 1, 1]
+loss_weights: [6, 1, 1, 1, 1, 1, 1]
 epochs: [100, 200]
 batch_size: [16, 32, 64]
-learning_rate: [0.1, 0.01, 0.001]
+learning_rate: [0.0001, 0.001, 0.01, 0.1]
 dropout: [0.1, 0.2, 0.3]
 embedding: [[100, 100, 100], [300, 300, 300]]

@@ -1,4 +1,4 @@
-# File: waseem_embedding.yaml
+# File: wulczyn_embedding.yaml
 # Sets up experiments for Word vocab (no reduction) using the Davidson et al dataset as the training dataset
 
 # Storage, GPU, etc.
@@ -10,7 +10,7 @@ shuffle: True
 tokenizer: bpe
 
 # Experiment
-main: waseem
+main: wulczyn 
 experiment: word
 cleaners: [username, hashtag, url, lower]
 

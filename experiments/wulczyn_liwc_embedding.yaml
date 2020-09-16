@@ -1,4 +1,4 @@
-# File: waseem_embedding.yaml
+# File: wulczyn_liwc_embedding.yaml
 # Sets up experiments for Word vocab (no reduction) using the Davidson et al dataset as the training dataset
 
 # Storage, GPU, etc.
@@ -7,11 +7,11 @@ save_model: results/models/
 results: results/
 gpu: True
 shuffle: True
-tokenizer: bpe
+tokenizer: spacy
 
 # Experiment
-main: waseem
-experiment: word
+main: wulczyn 
+experiment: liwc 
 cleaners: [username, hashtag, url, lower]
 
 # Model
