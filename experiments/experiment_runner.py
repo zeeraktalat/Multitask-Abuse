@@ -124,9 +124,9 @@ if __name__ == "__main__":
                         default = None, type = int)
 
     # Model architecture
-    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [[100, 100, 100]], type = list,
+    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [(100, 100, 100)], type = tuple,
                         nargs = '+')
-    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [[128, 128, 128]], type = list,
+    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [(128, 128, 128)], type = tuple,
                         nargs = '+')
     parser.add_argument("--shared", help = "Set the shared dimension", default = [256], type = int, nargs = '+')
     parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
