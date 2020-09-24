@@ -122,6 +122,7 @@ if __name__ == "__main__":
     parser.add_argument("--display", help = "Metric to display in TQDM loops.", default = 'f1-score')
     parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best",
                         default = None, type = int)
+    parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+')
 
     # Model architecture
     parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [[100, 100, 100]], type = list,
@@ -133,8 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
                         default = 'embedding', type = str.lower)
-    parser.add_argument('--tokenizer', help = "select the tokenizer to be used: Spacy, BPE", default = 'spacy',
-                        type = str.lower)
+    parser.add_argument('--tokenizer', help = "select the tokenizer to be used: Spacy, Ekphrasis, BPE",
+                        default = 'ekphrasis', type = str.lower)
 
     # Model (hyper) parameters
     parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
@@ -171,71 +172,58 @@ if __name__ == "__main__":
     # Set seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
-    csv.field_size_limit(1000000)
-    torch.cuda.set_device(0)
+    # torch.cuda.set_device(0)
 
     # Initialize experiment
-    c = Cleaner(args.cleaners)
+    c = Cleaner(args.cleaners, True) if args.tokenizer != 'spacy' else Cleaner(args.cleaners, False)
     p = Preprocessors(args.datadir)
     experiment = p.select_experiment(args.experiment)
     onehot = True if args.encoding == 'onehot' else False
 
-    tokenizer = c.tokenize if args.tokenizer == 'spacy' else c.bpe_tokenize
+    if args.tokenizer == 'spacy':
+        tokenizer = c.tokenize
+    elif args.tokenizer == 'bpe':
+        tokenizer = c.bpe_tokenize
+    elif args.tokenizer == 'ekphrasis':
+        tokenizer = c.ekphrasis_tokenize
 
-    # Load datasets
-    if 'waseem' in args.main:  # Waseem is the main task
+    # Set main task
+    if args.main == 'waseem':
         main = loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                               stratify = 'label')
-
-        aux = [loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                               skip_header = True),
-               loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                   stratify = 'label'),
-               loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                stratify = 'label', skip_header = True),
-               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-               #                       stratify = 'label'),
-               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                                     skip_header = True),
-               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, skip_header = True),
-               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                              skip_header = True)
-               ]
-
-    if args.main == 'davidson':
-        main = loaders.davidson(tokenizer, args.datadir, preprocessor = experiment,
-                                label_processor = None,
+    elif args.main == 'davidson':
+        main = loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                 stratify = 'label', skip_header = True)
-
-        aux = [loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                               skip_header = True),
-               loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                   stratify = 'label'),
-               loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                              stratify = 'label'),
-               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-               #                       stratify = 'label'),
-               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
-               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
-               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
-               ]
-
     elif args.main == 'wulczyn':
-        main = loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                               skip_header = True)
+        main = loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                               stratify = 'label', skip_header = True)
 
-        aux = [loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                   stratify = 'label'),
-               loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                              stratify = 'label'),
-               loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                stratify = 'label', skip_header = True),
-               # loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-               #                       stratify = 'label'),
-               loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label'),
-               loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment),
-               loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label')
-               ]
+    # Load aux tasks
+    aux = []
+    for auxiliary in args.aux:
+        if auxiliary == 'waseem':
+            aux.append(loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                      stratify = 'label'))
+        if auxiliary == 'waseem_hovy':
+            aux.append(loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                           stratify = 'label'))
+        if auxiliary == 'wulczyn':
+            aux.append(loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                       stratify = 'label', skip_header = True))
+        if auxiliary == 'davidson':
+            aux.append(loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                        stratify = 'label', skip_header = True))
+        if auxiliary == 'hoover':
+            aux.append(loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                                      skip_header = True))
+        if auxiliary == 'oraby_sarcasm':
+            aux.append(loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                                             skip_header = True))
+        if auxiliary == 'oraby_factfeel':
+            aux.append(loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, skip_header = True))
+        if auxiliary == 'preotiuc':
+            aux.append(loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                             stratify = 'label'))
 
     datasets = [main] + aux
     dev = main.dev
@@ -245,13 +233,6 @@ if __name__ == "__main__":
     for dataset in datasets:
         dataset.build_token_vocab(dataset.data)
         dataset.build_label_vocab(dataset.data)
-
-    # Limit the Wulczyn and Preotiuc vocabularies to at least 3 instances.
-    # preotiuc = aux[3]
-    # preotiuc.limit_vocab(limiter, limit = 3, limit_type = 'freq')
-
-    # wulczyn = aux[0] if args.main != 'wylczyn' else main
-    # wulczyn.limit_vocab(limiter, limit = 3, limit_type = 'freq')
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
