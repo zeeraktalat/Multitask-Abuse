@@ -11,7 +11,8 @@ tokenizer: spacy
 
 # Experiment
 main: waseem
-experiment: liwc 
+aux: [wulczyn, waseem_hovy, davidson, oraby_sarcasm, oraby_factfeel, hoover]
+experiment: liwc
 cleaners: [username, hashtag, url, lower]
 
 # Model
