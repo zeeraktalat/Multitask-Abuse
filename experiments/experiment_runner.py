@@ -40,6 +40,7 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
         hyperopt = trial
     ))
     training['model'] = model(**training)
+
     training.update(dict(
         loss = modeling['loss'](),
         optimizer = modeling['optimizer'](training['model'].parameters(), optimisable['learning_rate']),
@@ -124,7 +125,7 @@ if __name__ == "__main__":
                         default = None, type = int)
 
     # Model architecture
-    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [(100, 100, 100)], type = tuple,
+    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [(100)], type = tuple,
                         nargs = '+')
     parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [(128, 128, 128)], type = tuple,
                         nargs = '+')
