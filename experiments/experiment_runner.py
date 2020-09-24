@@ -176,7 +176,7 @@ if __name__ == "__main__":
     # torch.cuda.set_device(0)
 
     # Initialize experiment
-    c = Cleaner(args.cleaners, True) if args.tokenizer != 'spacy' else Cleaner(args.cleaners, False)
+    c = Cleaner(args.cleaners, True) if args.tokenizer == 'bpe' else Cleaner(args.cleaners, False)
     p = Preprocessors(args.datadir)
     experiment = p.select_experiment(args.experiment)
     onehot = True if args.encoding == 'onehot' else False
