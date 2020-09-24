@@ -187,43 +187,48 @@ if __name__ == "__main__":
     elif args.tokenizer == 'ekphrasis':
         tokenizer = c.ekphrasis_tokenize
 
+    # Set annotations, corrections and filters.
+    annotate = {'elongated', 'emphasis'}
+    filters = [f"<{filtr}>" for filtr in annotate]
+
     # Set main task
     if args.main == 'waseem':
         main = loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                              stratify = 'label')
+                              stratify = 'label', annotate = annotate, filters = filters)
     elif args.main == 'davidson':
         main = loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                stratify = 'label', skip_header = True)
+                                stratify = 'label', annotate = annotate, filters = filters, skip_header = True)
     elif args.main == 'wulczyn':
         main = loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                               stratify = 'label', skip_header = True)
+                               stratify = 'label', annotate = annotate, filters = filters, skip_header = True)
 
     # Load aux tasks
     aux = []
     for auxiliary in args.aux:
         if auxiliary == 'waseem':
             aux.append(loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                      stratify = 'label'))
+                                      annotate = annotate, filters = filters, stratify = 'label'))
         if auxiliary == 'waseem_hovy':
             aux.append(loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                           stratify = 'label'))
+                                           annotate = annotate, filters = filters, stratify = 'label'))
         if auxiliary == 'wulczyn':
             aux.append(loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                       stratify = 'label', skip_header = True))
+                                       stratify = 'label', annotate = annotate, filters = filters, skip_header = True))
         if auxiliary == 'davidson':
             aux.append(loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                        stratify = 'label', skip_header = True))
+                                        stratify = 'label', annotate = annotate, filters = filters, skip_header = True))
         if auxiliary == 'hoover':
             aux.append(loaders.hoover(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                                      skip_header = True))
+                                      annotate = annotate, filters = filters, skip_header = True))
         if auxiliary == 'oraby_sarcasm':
             aux.append(loaders.oraby_sarcasm(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
-                                             skip_header = True))
+                                             annotate = annotate, filters = filters, skip_header = True))
         if auxiliary == 'oraby_factfeel':
-            aux.append(loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, skip_header = True))
+            aux.append(loaders.oraby_fact_feel(tokenizer, args.datadir, preprocessor = experiment, stratify = 'label',
+                       annotate = annotate, filters = filters, skip_header = True))
         if auxiliary == 'preotiuc':
             aux.append(loaders.preotiuc_user(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                                             stratify = 'label'))
+                                             stratify = 'label', annotate = annotate, filters = filters))
 
     datasets = [main] + aux
     dev = main.dev
