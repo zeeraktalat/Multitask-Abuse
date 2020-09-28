@@ -176,9 +176,8 @@ if __name__ == "__main__":
     # torch.cuda.set_device(0)
 
     # Initialize experiment
-    c = Cleaner(args.cleaners, True) if args.tokenizer == 'bpe' else Cleaner(args.cleaners, False)
-    p = Preprocessors(args.datadir)
-    experiment = p.select_experiment(args.experiment)
+    c = Cleaner(args.cleaners)
+    experiment = Preprocessors(args.datadir).select_experiment(args.experiment)
     onehot = True if args.encoding == 'onehot' else False
 
     if args.tokenizer == 'spacy':
@@ -191,6 +190,7 @@ if __name__ == "__main__":
     # Set annotations, corrections and filters.
     annotate = {'elongated', 'emphasis'}
     filters = [f"<{filtr}>" for filtr in annotate]
+    c._load_ekphrasis(annotate, filters)
 
     # Set main task
     if args.main == 'waseem':
