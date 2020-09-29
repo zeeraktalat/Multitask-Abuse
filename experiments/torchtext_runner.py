@@ -124,9 +124,16 @@ if __name__ == "__main__":
     # Model (hyper) parameters
     parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
     parser.add_argument("--batch_size", help = "Set the batch size.", default = [64], type = int, nargs = '+')
-    parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
-    parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
-                        type = float, nargs = '+')
+    # parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
+    parser.add_argument("--dropout.high",  help = "Set upper limit for dropout.", default = 1.0, type = float)
+    parser.add_argument("--dropout.low",  help = "Set lower limit for dropout.", default = 0.0, type = float)
+    # parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
+    #                     type = float, nargs = '+')
+    parser.add_argument('--learning_rate.high', help = "Set the upper limit for the learning rate.", default = [1.0],
+                        type = float)
+    parser.add_argument('--learning_rate.low', help = "Set the lower limit for the learning rate.", default = [0.0001],
+                        type = float)
+
     parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = ['tanh'],
                         type = str.lower, nargs = '+')
     parser.add_argument("--hyperparams", help = "List of names of the hyper parameters to be searched.",
@@ -143,7 +150,6 @@ if __name__ == "__main__":
     parser.add_argument('--cfg', action = ActionConfigFile, default = None)
 
     args = parser.parse_args()
-
     if 'f1' in args.metrics + [args.display, args.stop_metric]:
         for i, m in enumerate(args.metrics):
             if 'f1' in m:
@@ -303,7 +309,7 @@ if __name__ == "__main__":
     datasets = main['train'] + [dataset['train'] for dataset in aux]
 
     # Open output files
-    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
+    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}_{args.tokenizer}'
     enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
     pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 

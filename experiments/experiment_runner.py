@@ -251,7 +251,7 @@ if __name__ == "__main__":
         dataset.build_label_vocab(dataset.data)
 
     # Open output files
-    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
+    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}_{args.tokenizer}'
     enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
     pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
