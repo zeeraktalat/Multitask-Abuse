@@ -1,8 +1,13 @@
+import os
+import csv
 import torch
 import optuna
 import numpy as np
+from tqdm import tqdm
 from mlearn.utils.metrics import Metrics
+from mlearn.modeling import multitask as mod_lib
 from mlearn.utils.pipeline import param_selection
+from mlearn.data.batching import TorchtextExtractor
 from mlearn.data.clean import Cleaner, Preprocessors
 from jsonargparse import ArgumentParser, ActionConfigFile
 from mlearn.utils.train import run_mtl_model as run_model
@@ -21,12 +26,19 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
     :modeling (dict): The arguments for the model and metrics objects.
     """
     optimisable = param_selection(trial, params)
+    batchers = []
 
-    # TODO Think of a way to not hardcode this.
+    for dataset in datasets:
+        buckets = BucketIterator(dataset = dataset['train'], batch_size = optimisable['batch_size'],
+                                 sort_key = lambda x: len(x))
+        if not modeling['onehot']:
+            batched = TorchtextExtractor('text', 'label', main['name'], buckets)
+        else:
+            batched = TorchtextExtractor('text', 'label', main['name'], buckets, len(dataset['text'].vocab.stoi))
+        batchers.append(batched)
+
     training.update(dict(
-        # TODO Update from process_and_batch
-        # batchers = [process_and_batch(dataset, dataset.data, optimisable['batch_size'], modeling['onehot'])
-        #             for dataset in datasets],
+        batchers = batchers,
         hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
         embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
         shared_dim = optimisable['shared'],
@@ -198,7 +210,7 @@ if __name__ == "__main__":
                                                  format = 'json', fields = fields)
         text.build_vocab(train)
         label.build_vocab(train)
-    main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label}
+    main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
 
     aux = []
     for auxiliary in args.aux:
@@ -211,7 +223,7 @@ if __name__ == "__main__":
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem'})
         if args.main == 'waseem-hovy':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -222,7 +234,7 @@ if __name__ == "__main__":
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem-hovy'})
         if args.main == 'wulczyn':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -232,7 +244,7 @@ if __name__ == "__main__":
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'wulczyn'})
         if args.main == 'davidson':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -242,7 +254,7 @@ if __name__ == "__main__":
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'davidson'})
         if auxiliary == 'hoover':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -252,7 +264,7 @@ if __name__ == "__main__":
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'hoover'})
         if auxiliary == 'oraby_sarcasm':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -262,7 +274,8 @@ if __name__ == "__main__":
                                                      test = 'oraby_sarcasm_test.json', format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label,
+                        'name': 'oraby_sarcasm'})
         if auxiliary == 'oraby_factfeel':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -273,7 +286,8 @@ if __name__ == "__main__":
                                                      fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label,
+                        'name': 'oraby_factfeel'})
         if auxiliary == 'preotiuc':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
@@ -284,4 +298,151 @@ if __name__ == "__main__":
             aux.append({'train': train, 'dev': dev, 'test': test})
             text.build_vocab(train)
             label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label})
+            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'preotiuc'})
+
+    datasets = main['train'] + [dataset['train'] for dataset in aux]
+
+    # Open output files
+    base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}'
+    enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
+    pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
+
+    train_writer = csv.writer(open(f"{base}_train.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    test_writer = csv.writer(open(f"{base}_test.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
+    batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+
+    model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
+
+    if enc == 'w':
+        metric_hdr = args.metrics + ['loss']
+        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning rate'] + model_hdr
+        hdr += metric_hdr
+        test_writer.writerow(hdr)  # Don't include dev columns when writing test
+        hdr += [f"dev {m}" for m in metric_hdr]
+        train_writer.writerow(hdr)
+
+        # Batch hdr
+        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task', 'Batch size', '# Epochs', 'Learning rate']
+        batch_hdr += model_hdr + metric_hdr
+        batch_writer.writerow(batch_hdr)
+
+    pred_metric_hdr = args.metrics + ['loss']
+    if pred_enc == 'w':
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr += ['Label', 'Prediction']
+        pred_writer.writerow(hdr)
+
+    if not args.onehot:
+        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
+        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
+    else:
+        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
+        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets, len(main['text'].vocab.stoi))
+
+    # Define arguments
+    train_args = dict(
+        # For writers
+        model_hdr = model_hdr,
+        metric_hdr = args.metrics + ["loss"],
+        batch_writer = batch_writer,
+
+        # Batch dev
+        dev = dev,
+
+        # Set model dimensionality
+        input_dims = [len(dataset['text'].vocab.stoi) for dataset in datasets],
+        output_dims = [len(dataset['label'].vocab.stoi) for dataset in datasets],
+        num_layers = 1,  # LSTM
+        batch_first = True,
+        early_stopping = args.patience,
+
+        # Name of main task
+        main_name = main.name,
+        batches_per_epoch = args.batches_epoch,  # Set batches per epoch
+        loss_weights = args.loss_weights,  # Set weight of each task
+
+        # Meta information
+        shuffle = args.shuffle,
+        gpu = args.gpu,
+        save_path = f"{args.save_model}{args.main}_{args.experiment}_best",
+        low = True if args.stop_metric == "loss" else False,
+        data_name = "_".join([data['name'] for data in datasets])
+    )
+
+    # Select optimizer and losses
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD
+    elif args.optimizer == 'asgd':
+        optimizer = torch.optim.ASGD
+    elif args.optimizer == 'adamw':
+        optimizer = torch.optim.AdamW
+
+    # Info about losses: https://bit.ly/3irxvYK
+    if args.loss == 'nlll':
+        loss = torch.nn.NLLLoss
+    elif args.loss == 'crossentropy':
+        loss = torch.nn.CrossEntropyLoss
+
+    if not args.onehot:
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets)
+    else:
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets, len(main['text'].vocab.stoi))
+
+    test_documents = []  # Obtain torchtext's order of test set
+    test_labels = []
+    for documents in test_buckets:  # Get batches
+        for i, doc in enumerate(documents.text):  # Get individual documents in batches
+            tokens = []
+            test_labels.append(main['label'].vocab.itos[documents.label[i]])
+            for tok in doc:
+                token = main['text'].vocab.itos[tok]
+                if token == '<pad>':
+                    break
+                tokens.append(token)
+            test_documents.append(" ".join(tokens))
+
+    modeling = dict(
+        onehot = onehot,
+        loss = loss,
+        optimizer = optimizer,
+        metrics = args.metrics,
+        display = args.display,
+        stop = args.stop_metric,
+        test_batcher = test_batcher,
+        main = main,
+        batch_writer = batch_writer,
+        train_writer = train_writer,
+        test_writer = test_writer,
+        pred_writer = None,
+    )
+
+    # Set models to iterate over
+    models = []
+    for m in args.model:
+        if m == 'mlp':
+            if onehot:
+                models.append(mod_lib.OnehotMLPClassifier)
+            else:
+                models.append(mod_lib.EmbeddingMLPClassifier)
+        else:
+            models.append(mod_lib.EmbeddingLSTMClassifier)
+
+    with tqdm(models, desc = "Model Iterator") as m_loop:
+        params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
+        direction = 'minimize' if args.stop_metric == 'loss' else 'maximize'
+        study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
+        trial_file = open(f"{base}.trials", 'a', encoding = 'utf-8')
+
+        for m in m_loop:
+            study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
+                           n_trials = 100, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
+
+            print(f"Model: {m}", file = trial_file)
+            print(f"Best parameters: {study.best_params}", file = trial_file)
+            print(f"Best trial: {study.best_trial}", file = trial_file)
+            print(f"All trials: {study.trials}", file = trial_file)
