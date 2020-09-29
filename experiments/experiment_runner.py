@@ -141,9 +141,16 @@ if __name__ == "__main__":
     # Model (hyper) parameters
     parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
     parser.add_argument("--batch_size", help = "Set the batch size.", default = [64], type = int, nargs = '+')
-    parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
-    parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
-                        type = float, nargs = '+')
+    # parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
+    parser.add_argument("--dropout.high",  help = "Set upper limit for dropout.", default = 1.0, type = float)
+    parser.add_argument("--dropout.low",  help = "Set lower limit for dropout.", default = 0.0, type = float)
+    # parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
+    #                     type = float, nargs = '+')
+    parser.add_argument('--learning_rate.high', help = "Set the upper limit for the learning rate.", default = [1.0],
+                        type = float)
+    parser.add_argument('--learning_rate.low', help = "Set the lower limit for the learning rate.", default = [0.0001],
+                        type = float)
+
     parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = ['tanh'],
                         type = str.lower, nargs = '+')
     parser.add_argument("--hyperparams", help = "List of names of the hyper parameters to be searched.",
@@ -196,6 +203,9 @@ if __name__ == "__main__":
     if args.main == 'waseem':
         main = loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                               stratify = 'label', annotate = annotate, filters = filters)
+    if args.main == 'waseem_hovy':
+        main = loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
+                                   stratify = 'label', annotate = annotate, filters = filters)
     elif args.main == 'davidson':
         main = loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                 stratify = 'label', annotate = annotate, filters = filters, skip_header = True)
