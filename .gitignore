@@ -108,6 +108,7 @@ venv.bak/
 
 # Prediction files
 results/*_preds.tsv
+results/*.trials.tsv
 
 # OSX Files
 *.DS_Store
