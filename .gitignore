@@ -108,3 +108,7 @@ venv.bak/
 
 # Prediction files
 results/*_preds.tsv
+
+# OSX Files
+*.DS_Store
+*/.*.icloud
