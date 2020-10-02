@@ -70,7 +70,7 @@ def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling
         loss = training['loss'],
         metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
         gpu = training['gpu'],
-        data = modeling['main'].test,
+        data = modeling['main']['test'],
         dataset = modeling['main'],
         hyper_info = training['hyper_info'],
         model_hdr = training['model_hdr'],
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
                         nargs = '+')
     parser.add_argument('--shuffle', help = "Shuffle dataset between epochs", type = bool, default = True)
-    parser.add_argument('--gpu', help = "Set to run on GPU", type = bool, default = False)
+    parser.add_argument('--gpu', help = "Set to run on GPU", type = int, default = 0)
     parser.add_argument('--seed', help = "Set the random seed.", type = int, default = 32)
     parser.add_argument("--experiment", help = "Set experiment to run.", default = "word", type = str.lower)
     parser.add_argument('--cfg', action = ActionConfigFile, default = None)
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     # Set seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
-    # torch.cuda.set_device(0)
+    torch.cuda.set_device(args.gpu)
 
     # Initialize experiment
     c = Cleaner(args.cleaners)
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     if args.main == 'waseem':
         text = Field(tokenize = tokenizer, lower = True, batch_first = True)
         label = LabelField()
-        fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
         train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
                                                  validation = 'waseem_dev.json', test = 'waseem_test.json',
                                                  format = 'json', fields = fields)
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     if args.main == 'waseem-hovy':
         text = Field(tokenize = tokenizer, lower = True, batch_first = True)
         label = LabelField()
-        fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
         train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem-hovy_train.json',
                                                  validation = 'waseem-hovy_dev.json', test = 'waseem-hovy_test.json',
                                                  format = 'json', fields = fields)
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     if args.main == 'wulczyn':
         text = Field(tokenize = tokenizer, lower = True, batch_first = True)
         label = LabelField()
-        fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
         train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
                                                  validation = 'wulczyn_dev.json', test = 'wulczyn_test.json',
                                                  format = 'json', fields = fields)
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     if args.main == 'davidson':
         text = Field(tokenize = tokenizer, lower = True, batch_first = True)
         label = LabelField()
-        fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
         train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
                                                  validation = 'davidson_dev.json', test = 'davidson_test.json',
                                                  format = 'json', fields = fields)
@@ -220,20 +220,20 @@ if __name__ == "__main__":
 
     aux = []
     for auxiliary in args.aux:
-        if args.main == 'waseem':
+        if auxiliary == 'waseem':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
                                                      validation = 'waseem_dev.json', test = 'waseem_test.json',
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
             aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem'})
-        if args.main == 'waseem-hovy':
+        if auxiliary == 'waseem-hovy':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem-hovy_train.json',
                                                      validation = 'waseem-hovy_dev.json',
                                                      test = 'waseem-hovy_test.json',
@@ -241,20 +241,20 @@ if __name__ == "__main__":
             text.build_vocab(train)
             label.build_vocab(train)
             aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem-hovy'})
-        if args.main == 'wulczyn':
+        if auxiliary == 'wulczyn':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
                                                      validation = 'wulczyn_dev.json', test = 'wulczyn_test.json',
                                                      format = 'json', fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
             aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'wulczyn'})
-        if args.main == 'davidson':
+        if auxiliary == 'davidson':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
                                                      validation = 'davidson_dev.json', test = 'davidson_test.json',
                                                      format = 'json', fields = fields)
@@ -264,7 +264,7 @@ if __name__ == "__main__":
         if auxiliary == 'hoover':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'hoover_train.json',
                                                      validation = 'hoover_dev.json', test = 'hoover_test.json',
                                                      format = 'json', fields = fields)
@@ -274,7 +274,7 @@ if __name__ == "__main__":
         if auxiliary == 'oraby_sarcasm':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_sarcasm_train.json',
                                                      validation = 'oraby_sarcasm_dev.json',
                                                      test = 'oraby_sarcasm_test.json', format = 'json', fields = fields)
@@ -285,10 +285,10 @@ if __name__ == "__main__":
         if auxiliary == 'oraby_factfeel':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_factfeel_train.json',
-                                                     validation = 'oraby_factfeel_dev.json',
-                                                     test = 'oraby_factfeel_test.json', format = 'json',
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_fact_feel_train.json',
+                                                     validation = 'oraby_fact_feel_dev.json',
+                                                     test = 'oraby_fact_feel_test.json', format = 'json',
                                                      fields = fields)
             text.build_vocab(train)
             label.build_vocab(train)
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         if auxiliary == 'preotiuc':
             text = Field(tokenize = tokenizer, lower = True, batch_first = True)
             label = LabelField()
-            fields = [('text', text), ('label', label)]  # Because we load from json we just need this.
+            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
             train, dev, test = TabularDataset.splits(args.datadir, train = 'preotiuc_train.json',
                                                      validation = 'preotiuc_dev.json',
                                                      test = 'preotiuc_test.json', format = 'json', fields = fields)
@@ -306,7 +306,7 @@ if __name__ == "__main__":
             label.build_vocab(train)
             aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'preotiuc'})
 
-    datasets = main['train'] + [dataset['train'] for dataset in aux]
+    datasets = [main] + aux
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}_{args.tokenizer}'
@@ -339,7 +339,7 @@ if __name__ == "__main__":
         hdr += ['Label', 'Prediction']
         pred_writer.writerow(hdr)
 
-    if not args.onehot:
+    if not onehot:
         dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
         dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
     else:
@@ -358,18 +358,18 @@ if __name__ == "__main__":
 
         # Set model dimensionality
         input_dims = [len(dataset['text'].vocab.stoi) for dataset in datasets],
-        output_dims = [len(dataset['label'].vocab.stoi) for dataset in datasets],
+        output_dims = [len(dataset['labels'].vocab.stoi) for dataset in datasets],
         num_layers = 1,  # LSTM
         batch_first = True,
         early_stopping = args.patience,
 
         # Name of main task
-        main_name = main.name,
+        main_name = main['name'],
         batches_per_epoch = args.batches_epoch,  # Set batches per epoch
         loss_weights = args.loss_weights,  # Set weight of each task
 
         # Meta information
-        shuffle = args.shuffle,
+        shuffle = False,
         gpu = args.gpu,
         save_path = f"{args.save_model}{args.main}_{args.experiment}_best",
         low = True if args.stop_metric == "loss" else False,
@@ -392,11 +392,11 @@ if __name__ == "__main__":
     elif args.loss == 'crossentropy':
         loss = torch.nn.CrossEntropyLoss
 
-    if not args.onehot:
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+    if not onehot:
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x), shuffle = args.shuffle)
         test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets)
     else:
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x), shuffle = args.shuffle)
         test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets, len(main['text'].vocab.stoi))
 
     test_documents = []  # Obtain torchtext's order of test set
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     for documents in test_buckets:  # Get batches
         for i, doc in enumerate(documents.text):  # Get individual documents in batches
             tokens = []
-            test_labels.append(main['label'].vocab.itos[documents.label[i]])
+            test_labels.append(main['labels'].vocab.itos[documents.label[i]])
             for tok in doc:
                 token = main['text'].vocab.itos[tok]
                 if token == '<pad>':

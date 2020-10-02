@@ -1,0 +1,45 @@
+# File: mlp_bpe_davidson.yaml
+# Run experiments using ekphrasis generated liwc tokens on MLP.
+
+# Storage, GPU, etc.
+datadir: data/
+save_model: results/models/
+results: results/
+gpu: True
+shuffle: True
+tokenizer: bpe
+
+# Experiment
+main: davidson 
+aux: [wulczyn, waseem_hovy, waseem, oraby_sarcasm, oraby_factfeel, hoover]
+experiment: word
+cleaners: [username, hashtag, url, lower]
+
+# Model
+model: [mlp]
+encoding: embedding
+optimizer: adam
+loss: nlll
+seed: 42
+nonlinearity: [tanh, relu]
+
+# Metrics, earlyss topping, etc.
+metrics: [accuracy, precision, recall, f1-score]
+display: f1-score
+stop_metric: f1-score
+patience: 15
+
+# Hyper parameters
+hyperparams: [batch_size, epochs, learning_rate, dropout, embedding, shared, nonlinearity]
+batches_epoch: 300
+loss_weights: [6, 1, 1, 1, 1, 1, 1]
+epochs: [100, 200]
+batch_size: [16, 32, 64]
+learning_rate: 
+ high: 1.0
+ low: 1e-5
+dropout:
+ high: 0.5
+ low: 0.1
+embedding: [[100, 100, 100], [300, 300, 300]]
+hidden: [[100, 100, 100, 100, 100, 100, 100 ], [300, 300, 300, 300, 300, 300, 300]]

@@ -31,13 +31,6 @@ if __name__ == "__main__":
 
     datasets = []
     datasets.append(loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                    stratify = 'label', annotate = annotate, filters = filters))
-    datasets.append(loaders.davidson(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                    stratify = 'label', annotate = annotate, filters = filters, skip_header = True))
-    datasets.append(loaders.wulczyn(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
-                    stratify = 'label', annotate = annotate, filters = filters, skip_header = True))
-
-    datasets.append(loaders.waseem(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                    stratify = 'label'))
     datasets.append(loaders.waseem_hovy(tokenizer, args.datadir, preprocessor = experiment, label_processor = None,
                                         stratify = 'label'))
