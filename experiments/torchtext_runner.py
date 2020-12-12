@@ -1,312 +1,321 @@
 import os
 import csv
+import json
+import wandb
 import torch
-import optuna
 import numpy as np
-from tqdm import tqdm
+from argparse import ArgumentParser
+import mlearn.modeling.multitask as mtl
 from mlearn.utils.metrics import Metrics
-from mlearn.modeling import multitask as mod_lib
-from mlearn.utils.pipeline import param_selection
 from mlearn.data.batching import TorchtextExtractor
 from mlearn.data.clean import Cleaner, Preprocessors
-from jsonargparse import ArgumentParser, ActionConfigFile
 from mlearn.utils.train import run_mtl_model as run_model
 from torchtext.data import TabularDataset, Field, LabelField, BucketIterator
-
-
-def sweeper(trial, training: dict, datasets: list, params: dict, model, modeling: dict, direction: str):
-    """
-    The function that contains all loading and setting of values and running the sweeps.
-
-    :trial: The Optuna trial.
-    :training (dict): Dictionary containing training modeling.
-    :datasets (list): List of datasets objects.
-    :params (dict): A dictionary of the different tunable parameters and their values.
-    :model: The model to train.
-    :modeling (dict): The arguments for the model and metrics objects.
-    """
-    optimisable = param_selection(trial, params)
-    batchers = []
-
-    for dataset in datasets:
-        buckets = BucketIterator(dataset = dataset['train'], batch_size = optimisable['batch_size'],
-                                 sort_key = lambda x: len(x))
-        if not modeling['onehot']:
-            batched = TorchtextExtractor('text', 'label', main['name'], buckets)
-        else:
-            batched = TorchtextExtractor('text', 'label', main['name'], buckets, len(dataset['text'].vocab.stoi))
-        batchers.append(batched)
-
-    training.update(dict(
-        batchers = batchers,
-        hidden_dims = optimisable['hidden'] if 'hidden' in optimisable else None,
-        embedding_dims = optimisable['embedding'] if 'embedding' in optimisable else None,
-        shared_dim = optimisable['shared'],
-        hyper_info = [optimisable['batch_size'], optimisable['epochs'], optimisable['learning_rate']],
-        dropout = optimisable['dropout'],
-        nonlinearity = optimisable['nonlinearity'],
-        epochs = optimisable['epochs'],
-        hyperopt = trial
-    ))
-    training['model'] = model(**training)
-
-    training.update(dict(
-        loss = modeling['loss'](),
-        optimizer = modeling['optimizer'](training['model'].parameters(), optimisable['learning_rate']),
-        metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
-        dev_metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop'])
-    ))
-
-    run_model(train = True, writer = modeling['train_writer'], **training)
-
-    if direction == 'minimize':
-        metric = training['dev_metrics'].loss
-    else:
-        metric = np.mean(training['dev_metrics'].scores[modeling['display']])
-
-    eval = dict(
-        model = training['model'],
-        batchers = modeling['test_batcher'],
-        loss = training['loss'],
-        metrics = Metrics(modeling['metrics'], modeling['display'], modeling['stop']),
-        gpu = training['gpu'],
-        data = modeling['main']['test'],
-        dataset = modeling['main'],
-        hyper_info = training['hyper_info'],
-        model_hdr = training['model_hdr'],
-        metric_hdr = training['metric_hdr'],
-        main_name = training['main_name'],
-        data_name = training['main_name'],
-        train_field = 'text',
-        label_field = 'label',
-        store = False,
-        mtl = 0
-    )
-
-    run_model(train = False, writer = modeling['test_writer'], pred_writer = None, **eval)
-
-    return metric
-
 
 if __name__ == "__main__":
     parser = ArgumentParser(description = "Run Experiments using MTL.")
 
-    # For all modesl
+    # Data inputs and outputs
     parser.add_argument("--main", help = "Choose train data: Davidson, Waseem, Waseem and Hovy, Wulczyn, and Garcia.",
                         type = str.lower, default = 'Davidson')
-    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", nargs = '+',
-                        default = ['mlp'], type = str.lower)
-    parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
+    parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+',
+                        default = ['wulczyn'])
+    parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/json/')
     parser.add_argument("--results", help = "Set file to output results to.", default = 'results/')
-    parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/')
-    parser.add_argument("--cleaners", help = "Set the cleaning routines to be used.", nargs = '+', default = None)
+    parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
+
+    # Cleaning and metrics
+    parser.add_argument("--cleaners", help = "Set the cleaning routines to be used.", nargs = '+', default = ['lower'])
     parser.add_argument("--metrics", help = "Set the metrics to be used.", nargs = '+', default = ["f1"],
                         type = str.lower)
-    parser.add_argument("--stop_metric", help = "Set the metric to be used for early stopping", default = "loss")
     parser.add_argument("--display", help = "Metric to display in TQDM loops.", default = 'f1-score')
-    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best",
-                        default = None, type = int)
-    parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+')
+    parser.add_argument("--stop_metric", help = "Set the metric to be used for early stopping", default = "loss")
 
-    # Model architecture
-    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = [(100)], type = tuple,
-                        nargs = '+')
-    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = [(128, 128, 128)], type = tuple,
-                        nargs = '+')
-    parser.add_argument("--shared", help = "Set the shared dimension", default = [256], type = int, nargs = '+')
-    parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
-    parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
-    parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
-                        default = 'embedding', type = str.lower)
+    # Experiment
+    parser.add_argument("--experiment", help = "Set experiment to run.", default = "word", type = str.lower)
     parser.add_argument('--tokenizer', help = "select the tokenizer to be used: Spacy, Ekphrasis, BPE",
                         default = 'ekphrasis', type = str.lower)
+    parser.add_argument('--seed', help = "Set the random seed.", type = int, default = 32)
 
-    # Model (hyper) parameters
-    parser.add_argument("--epochs", help = "Set the number of epochs.", default = [200], type = int, nargs = '+')
-    parser.add_argument("--batch_size", help = "Set the batch size.", default = [64], type = int, nargs = '+')
-    # parser.add_argument("--dropout", help = "Set value for dropout.", default = [0.0, 0.0], type = float, nargs = '+')
-    parser.add_argument("--dropout.high",  help = "Set upper limit for dropout.", default = 1.0, type = float)
-    parser.add_argument("--dropout.low",  help = "Set lower limit for dropout.", default = 0.0, type = float)
-    # parser.add_argument('--learning_rate', help = "Set the learning rate for the model.", default = [0.01],
-    #                     type = float, nargs = '+')
-    parser.add_argument('--learning_rate.high', help = "Set the upper limit for the learning rate.", default = [1.0],
+    # Modelling
+    # All models
+    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'mlp',
+                        type = str.lower)
+    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 15,
+                        type = int)
+    parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
+                        default = 'embedding', type = str.lower)
+    parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
+    parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
+    parser.add_argument('--shuffle', help = "Shuffle dataset between epochs", type = bool, default = True)
+    parser.add_argument('--gpu', help = "Set to run on GPU", type = bool, default = False)
+    # LSTM
+    parser.add_argument("--layers", help = "Set the number of layers.", default = 1, type = int)
+    # CNN
+    parser.add_argument('--window_sizes', help = "Set CNN window sizes.", default = "2,3,4", type = str)
+    parser.add_argument("--filters", help = "Set the number of filters for CNN.", default = 128, type = int)
+
+    # Hyper Parameters
+    parser.add_argument("--embedding", help = "Set the embedding dimension.", default = 64, type = int)
+    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = ["64,64"], type = str, nargs = '+')
+    parser.add_argument("--shared", help = "Set the shared dimension", default = 64, type = int)  # TODO Fix in MTL code
+    parser.add_argument("--epochs", help = "Set the number of epochs.", default = 200, type = int)
+    parser.add_argument("--batch_size", help = "Set the batch size.", default = 64, type = int)
+    parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = 'tanh',
+                        type = str.lower)
+    parser.add_argument('--learning_rate', help = "Set the upper limit for the learning rate.", default = 1.0,
                         type = float)
-    parser.add_argument('--learning_rate.low', help = "Set the lower limit for the learning rate.", default = [0.0001],
-                        type = float)
+    parser.add_argument("--dropout", help = "Set upper limit for dropout.", default = 1.0, type = float)
 
-    parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = ['tanh'],
-                        type = str.lower, nargs = '+')
-    parser.add_argument("--hyperparams", help = "List of names of the hyper parameters to be searched.",
-                        default = ['epochs'], type = str.lower, nargs = '+')
-
-    # Experiment parameters
+    # MTL specific
     parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = None)
     parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
                         nargs = '+')
-    parser.add_argument('--shuffle', help = "Shuffle dataset between epochs", type = bool, default = True)
-    parser.add_argument('--gpu', help = "Set to run on GPU", type = int, default = 0)
-    parser.add_argument('--seed', help = "Set the random seed.", type = int, default = 32)
-    parser.add_argument("--experiment", help = "Set experiment to run.", default = "word", type = str.lower)
-    parser.add_argument('--cfg', action = ActionConfigFile, default = None)
-
     args = parser.parse_args()
-    if 'f1' in args.metrics + [args.display, args.stop_metric]:
-        for i, m in enumerate(args.metrics):
-            if 'f1' in m:
-                args.metrics[i] = 'f1-score'
-        if args.display == 'f1':
-            args.display = 'f1-score'
-        if args.stop_metric == 'f1':
-            args.display = 'f1-score'
 
-    # Set seeds
+    if 'f1' in args.metrics:
+        args.metrics[args.metrics.index('f1')] = 'f1-score'
+    if args.display == 'f1':
+        args.display = 'f1-score'
+    if args.stop_metric == 'f1':
+        args.stop_metric = 'f1-score'
+
+    # Set up WandB logging
+    wandb.init(config = args)
+    config = wandb.config
+
+    # Initialise random seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
-    torch.cuda.set_device(args.gpu)
+    if args.gpu:
+        torch.cuda.set_device(0)
 
-    # Initialize experiment
-    c = Cleaner(args.cleaners)
-    experiment = Preprocessors(args.datadir).select_experiment(args.experiment)
+    # Set up experiment and cleaner
+    c = Cleaner(processes = args.cleaners)
+    exp = Preprocessors('data/').select_experiment(args.experiment)
     onehot = True if args.encoding == 'onehot' else False
 
+    # Load tokenizers
     if args.tokenizer == 'spacy':
-        tokenizer = c.tokenize
+        selected_tok  = c.tokenize
     elif args.tokenizer == 'bpe':
-        tokenizer = c.bpe_tokenize
-    elif args.tokenizer == 'ekphrasis':
-        tokenizer = c.ekphrasis_tokenize
-        # Set annotations, corrections and filters.
+        selected_tok = c.bpe_tokenize
+    elif args.tokenizer == 'ekphrasis' and args.experiment == 'word':
+        selected_tok = c.ekphrasis_tokenize
         annotate = {'elongated', 'emphasis'}
-        filters = [f"<{filtr}>" for filtr in annotate]
-        c._load_ekphrasis(annotate, filters)
+        flters = [f"<{filtr}>" for filtr in annotate]
+        c._load_ekphrasis(annotate, flters)
+    elif args.tokenizer == 'ekphrasis' and args.experiment == 'liwc':
+        ekphr = c.ekphrasis_tokenize
+        annotate = {'elongated', 'emphasis'}
+        flters = [f"<{filtr}>" for filtr in annotate]
+        c._load_ekphrasis(annotate, flters)
 
-    if args.main == 'waseem':
-        text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-        label = LabelField()
-        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
-                                                 validation = 'waseem_dev.json', test = 'waseem_test.json',
-                                                 format = 'json', fields = fields)
-        text.build_vocab(train)
-        label.build_vocab(train)
-    if args.main == 'waseem-hovy':
-        text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-        label = LabelField()
-        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem-hovy_train.json',
-                                                 validation = 'waseem-hovy_dev.json', test = 'waseem-hovy_test.json',
-                                                 format = 'json', fields = fields)
-        text.build_vocab(train)
-        label.build_vocab(train)
-    if args.main == 'wulczyn':
-        text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-        label = LabelField()
-        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
-                                                 validation = 'wulczyn_dev.json', test = 'wulczyn_test.json',
-                                                 format = 'json', fields = fields)
-        text.build_vocab(train)
-        label.build_vocab(train)
+        def liwc_toks(doc):
+            tokens = ekphr(doc)
+            tokens = exp(tokens)
+            return tokens
+        selected_tok = liwc_toks
+    tokenizer = selected_tok
+
+    # Set up fields
+    text = Field(tokenize = tokenizer, lower = True, batch_first = True)
+    label = LabelField()
+    fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+
+    # Load main task training data
     if args.main == 'davidson':
-        text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-        label = LabelField()
-        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
         train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
-                                                 validation = 'davidson_dev.json', test = 'davidson_test.json',
-                                                 format = 'json', fields = fields)
-        text.build_vocab(train)
-        label.build_vocab(train)
+                                                 validation = 'davidson_dev.json',
+                                                 test = 'davidson_test.json',
+                                                 format = 'json', skip_header = True, fields = fields)
+    elif args.main == 'wulczyn':
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
+                                                 validation = 'wulczyn_dev.json',
+                                                 test = 'wulczyn_test.json',
+                                                 format = 'json', skip_header = True, fields = fields)
+    elif args.main == 'waseem':
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
+                                                 validation = 'waseem_dev.json',
+                                                 test = 'waseem_test.json',
+                                                 format = 'json', skip_header = True, fields = fields)
+    text.build_vocab(train)
+    label.build_vocab(train)
     main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
 
-    aux = []
-    for auxiliary in args.aux:
-        if auxiliary == 'waseem':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
-                                                     validation = 'waseem_dev.json', test = 'waseem_test.json',
-                                                     format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem'})
-        if auxiliary == 'waseem-hovy':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem-hovy_train.json',
-                                                     validation = 'waseem-hovy_dev.json',
-                                                     test = 'waseem-hovy_test.json',
-                                                     format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'waseem-hovy'})
-        if auxiliary == 'wulczyn':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
-                                                     validation = 'wulczyn_dev.json', test = 'wulczyn_test.json',
-                                                     format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'wulczyn'})
-        if auxiliary == 'davidson':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+    # Dump Vocabulary files
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
+              encoding = 'utf-8') as vocab_file:
+        vocab_file.write(json.dumps(text.vocab.stoi))
+        vocab_artifact = wandb.Artifact('vocabs', type = 'vocab')
+        vocab_artifact.add_file(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab')
+        wandb.log_artifact(vocab_artifact)
+
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.label', 'w',
+              encoding = 'utf-8') as label_file:
+        label_file.write(json.dumps(label.vocab.stoi))
+        label_artifact = wandb.Artifact('label_vocabs', type = 'label_vocab')
+        label_artifact.add_file(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.label')
+        wandb.log_artifact(label_artifact)
+
+    # Load aux tasks
+    auxillary = []
+    for i, aux in enumerate(args.aux):
+        # Set up fields
+        text = Field(tokenize = tokenizer, lower = True, batch_first = True)
+        label = LabelField()
+        fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+
+        if aux == 'davidson':
             train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
-                                                     validation = 'davidson_dev.json', test = 'davidson_test.json',
-                                                     format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'davidson'})
-        if auxiliary == 'hoover':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+                                                     validation = 'davidson_dev.json',
+                                                     test = 'davidson_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'hoover':
             train, dev, test = TabularDataset.splits(args.datadir, train = 'hoover_train.json',
-                                                     validation = 'hoover_dev.json', test = 'hoover_test.json',
-                                                     format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'hoover'})
-        if auxiliary == 'oraby_sarcasm':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_sarcasm_train.json',
-                                                     validation = 'oraby_sarcasm_dev.json',
-                                                     test = 'oraby_sarcasm_test.json', format = 'json', fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label,
-                        'name': 'oraby_sarcasm'})
-        if auxiliary == 'oraby_factfeel':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
+                                                     validation = 'hoover_dev.json',
+                                                     test = 'hoover_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'oraby_factfeel':
             train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_fact_feel_train.json',
                                                      validation = 'oraby_fact_feel_dev.json',
-                                                     test = 'oraby_fact_feel_test.json', format = 'json',
-                                                     fields = fields)
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label,
-                        'name': 'oraby_factfeel'})
-        if auxiliary == 'preotiuc':
-            text = Field(tokenize = tokenizer, lower = True, batch_first = True)
-            label = LabelField()
-            fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'preotiuc_train.json',
-                                                     validation = 'preotiuc_dev.json',
-                                                     test = 'preotiuc_test.json', format = 'json', fields = fields)
-            aux.append({'train': train, 'dev': dev, 'test': test})
-            text.build_vocab(train)
-            label.build_vocab(train)
-            aux.append({'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': 'preotiuc'})
+                                                     test = 'oraby_fact_feel_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'oraby_sarcasm':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_sarcasm_train.json',
+                                                     validation = 'oraby_sarcasm_dev.json',
+                                                     test = 'oraby_sarcasm_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'waseem':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
+                                                     validation = 'waseem_dev.json',
+                                                     test = 'waseem_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'waseem_hovy':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
+                                                     validation = 'waseem_hovy_dev.json',
+                                                     test = 'waseem_hovy_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        text.build_vocab(train)
+        label.build_vocab(train)
+        auxillary.append({'train': train,
+                          'dev': dev,
+                          'test': test,
+                          'text': text,
+                          'labels': label,
+                          'name': aux,
+                          'task_id': i
+                          })
 
-    datasets = [main] + aux
+        # Dump vocabs
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.vocab', 'w',
+                  encoding = 'utf-8') as vocab_file:
+            vocab_file.write(json.dumps(text.vocab.stoi))
+            vocab_artifact.add_file(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.vocab')
+            wandb.log_artifact(vocab_artifact)
+
+        # Dump label vocabs
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.label', 'w',
+                  encoding = 'utf-8') as label_file:
+            label_file.write(json.dumps(label.vocab.stoi))
+            label_artifact.add_file(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.label')
+            wandb.log_artifact(label_artifact)
+
+        if len(auxillary) == len(args.aux):
+            break  # All datasets have been loaded.
+
+    # Hyper parameters
+    dropout = config.dropout
+    nonlinearity = config.nonlinearity
+    learning_rate = config.learning_rate
+    epochs = config.epochs
+    batch_size = config.batch_size
+    batch_count = config.batches_epoch
+    loss_weights = config.loss_weights
+
+    params = dict(shared_dim = config.shared,
+                  batch_first = True,
+                  hidden_dims = [int(hidden) for hidden in config.hidden.split(',')],
+                  input_dims = [len(main['text'].vocab.stoi)] + [len(aux['text'].vocab.stoi) for aux in auxillary],
+                  output_dims = [len(main['labels'].vocab.stoi)] + [len(aux['labels'].vocab.stoi) for aux in auxillary],
+                  )
+
+    if not onehot:
+        params.update({'embedding_dims': config.embedding})
+    if args.model == 'lstm':
+        params.update({'no_layers': args.layers})
+        model = mtl.OnehotLSTMClassifier if onehot else mtl.EmbeddingLSTMClassifier
+    else:
+        params.update({'non-linearity': config.nonlinearity})
+
+        if args.model == 'cnn':
+            params.update({'window_sizes': [int(win) for win in config.window_sizes.split(',')],
+                           'num_filters': config.filters})
+            model = mtl.OnehotCNNClassifier if onehot else mtl.EmbeddingCNNClassifier
+        elif args.model == 'mlp':
+            model = mtl.OnehotMLPClassifier if onehot else mtl.EmbeddingMLPClassifier
+
+    model = model(**params)
+
+    # Info about losses: https://bit.ly/3irxvYK
+    if args.loss == 'nlll':
+        loss = torch.nn.NLLLoss()
+    elif args.loss == 'crossentropy':
+        loss = torch.nn.CrossEntropyLoss()
+
+    # Set optimizer
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), learning_rate)
+    elif args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), learning_rate)
+    elif args.optimizer == 'asgd':
+        optimizer = torch.optim.ASGD(model.parameters(), learning_rate)
+    elif args.optimizer == 'adamw':
+        optimizer = torch.optim.AdamW(model.parameters(), learning_rate)
+
+    # Batch data
+    batchers = []
+    test_batchers = []
+    if not onehot:
+        train_buckets = BucketIterator(dataset = main['train'], batch_size = batch_size, sort_key = lambda x: len(x))
+        main_train = TorchtextExtractor('text', 'label', main['name'], train_buckets)
+        batchers.append(main_train)
+
+        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
+        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
+
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
+        test_batchers.append(test)
+
+        for aux in auxillary:
+            train_buckets = BucketIterator(dataset = aux['train'], batch_size = batch_size, sort_key = lambda x: len(x))
+            train = TorchtextExtractor('text', 'label', aux['name'], train_buckets)
+            batchers.append(train)
+
+            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, sort_key = lambda x: len(x))
+            test = TorchtextExtractor('text', 'label', aux['name'], test_buckets)
+            test_batchers.append(test)
+    else:
+        train_buckets = BucketIterator(dataset = main['train'], batch_size = batch_size, sort_key = lambda x: len(x))
+        train = TorchtextExtractor('text', 'label', main['name'], train_buckets, len(main['text'].vocab.stoi))
+        batchers.append(train)
+
+        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
+        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets, len(main['text'].vocab.stoi))
+
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
+        test_batchers.append(test)
+
+        for aux in auxillary:
+            train_buckets = BucketIterator(dataset = aux['train'], batch_size = batch_size, sort_key = lambda x: len(x))
+            train = TorchtextExtractor('text', 'label', aux['name'], train_buckets, len(aux['text'].vocab.stoi))
+            batchers.append(train)
+
+            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, sort_key = lambda x: len(x))
+            test = TorchtextExtractor('text', 'label', aux['name'], test_buckets)
+            test_batchers.append(test)
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}_{args.tokenizer}'
@@ -339,116 +348,64 @@ if __name__ == "__main__":
         hdr += ['Label', 'Prediction']
         pred_writer.writerow(hdr)
 
-    if not onehot:
-        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
-        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
-    else:
-        dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
-        dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets, len(main['text'].vocab.stoi))
+    # Set args
+    train_dict = dict(save_path = f"{args.save_model}{args.experiment}_{args.tokenizer}_{args.main}_best",
+                      hyperopt = True,
+                      gpu = args.gpu,
+                      shuffle = False,
 
-    # Define arguments
-    train_args = dict(
-        # For writers
-        model_hdr = model_hdr,
-        metric_hdr = args.metrics + ["loss"],
-        batch_writer = batch_writer,
+                      # Hyper-parameters
+                      clip = 1.0,
+                      epochs = epochs,
+                      early_stopping = args.patience,
+                      low = True if args.stop_metric == 'loss' else False,
 
-        # Batch dev
-        dev = dev,
+                      # Model definitions
+                      model = model,
+                      loss = loss,
+                      optimizer = optimizer,
 
-        # Set model dimensionality
-        input_dims = [len(dataset['text'].vocab.stoi) for dataset in datasets],
-        output_dims = [len(dataset['labels'].vocab.stoi) for dataset in datasets],
-        num_layers = 1,  # LSTM
-        batch_first = True,
-        early_stopping = args.patience,
+                      # Dataset
+                      batchers = train,
+                      metrics = Metrics(args.metrics, args.display, args.stop_metric),
+                      dev = dev,
+                      dev_metrics = Metrics(args.metrics, args.display, args.stop_metric))
 
-        # Name of main task
-        main_name = main['name'],
-        batches_per_epoch = args.batches_epoch,  # Set batches per epoch
-        loss_weights = args.loss_weights,  # Set weight of each task
+    # Writing
+    write_dict = dict(batch_writer = batch_writer,
+                      train_writer = train_writer,
+                      test_writer = test_writer,
+                      pred_writer = None,
+                      main_name = main['name'],
+                      data_name = "_".join(main['name'] + [aux['name'].split()[0] for aux in auxillary]),
+                      model_hdr = model_hdr,
+                      metric_hdr = args.metrics + ['loss'],
+                      hyper_info = [batch_size, epochs, learning_rate],
+                      )
+    run_model(train = True, **train_dict, **write_dict)
 
-        # Meta information
-        shuffle = False,
-        gpu = args.gpu,
-        save_path = f"{args.save_model}{args.main}_{args.experiment}_best",
-        low = True if args.stop_metric == "loss" else False,
-        data_name = "_".join([data['name'] for data in datasets])
-    )
+    # Do tests
+    main_task_eval = dict(model = model,
+                          batchers = test_batchers[0],
+                          loss = loss,
+                          metrics = Metrics(args.metrics, args.display, args.stop_metric),
+                          gpu = args.gpu,
+                          mtl = 0,
+                          store = False,
+                          data = None
+                          )
 
-    # Select optimizer and losses
-    if args.optimizer == 'adam':
-        optimizer = torch.optim.Adam
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD
-    elif args.optimizer == 'asgd':
-        optimizer = torch.optim.ASGD
-    elif args.optimizer == 'adamw':
-        optimizer = torch.optim.AdamW
-
-    # Info about losses: https://bit.ly/3irxvYK
-    if args.loss == 'nlll':
-        loss = torch.nn.NLLLoss
-    elif args.loss == 'crossentropy':
-        loss = torch.nn.CrossEntropyLoss
-
-    if not onehot:
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x), shuffle = args.shuffle)
-        test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets)
-    else:
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x), shuffle = args.shuffle)
-        test_batcher = TorchtextExtractor('text', 'label', main['name'], test_buckets, len(main['text'].vocab.stoi))
-
-    test_documents = []  # Obtain torchtext's order of test set
-    test_labels = []
-    for documents in test_buckets:  # Get batches
-        for i, doc in enumerate(documents.text):  # Get individual documents in batches
-            tokens = []
-            test_labels.append(main['labels'].vocab.itos[documents.label[i]])
-            for tok in doc:
-                token = main['text'].vocab.itos[tok]
-                if token == '<pad>':
-                    break
-                tokens.append(token)
-            test_documents.append(" ".join(tokens))
-
-    modeling = dict(
-        onehot = onehot,
-        loss = loss,
-        optimizer = optimizer,
-        metrics = args.metrics,
-        display = args.display,
-        stop = args.stop_metric,
-        test_batcher = test_batcher,
-        main = main,
-        batch_writer = batch_writer,
-        train_writer = train_writer,
-        test_writer = test_writer,
-        pred_writer = None,
-    )
-
-    # Set models to iterate over
-    models = []
-    for m in args.model:
-        if m == 'mlp':
-            if onehot:
-                models.append(mod_lib.OnehotMLPClassifier)
-            else:
-                models.append(mod_lib.EmbeddingMLPClassifier)
-        else:
-            models.append(mod_lib.EmbeddingLSTMClassifier)
-
-    with tqdm(models, desc = "Model Iterator") as m_loop:
-        params = {param: getattr(args, param) for param in args.hyperparams}  # Get hyper-parameters to search
-        direction = 'minimize' if args.stop_metric == 'loss' else 'maximize'
-        study = optuna.create_study(study_name = 'MTL-abuse', direction = direction)
-        trial_file = open(f"{base}.trials", 'a', encoding = 'utf-8')
-
-        for m in m_loop:
-            study.optimize(lambda trial: sweeper(trial, train_args, datasets, params, m, modeling, direction),
-                           n_trials = 100, gc_after_trial = True, n_jobs = 1, show_progress_bar = True)
-
-            print(f"Model: {m}", file = trial_file)
-            print(f"Best parameters: {study.best_params}", file = trial_file)
-            print(f"Best trial: {study.best_trial}", file = trial_file)
-            print(f"All trials: {study.trials}", file = trial_file)
+    run_model(train = False, **main_task_eval)
+    for aux in auxillary:
+        aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
+        aux_dict = dict(model = model,
+                        batchers = aux['test'],
+                        metrics = aux_metrics,
+                        gpu = args.gpu,
+                        mtl = aux['task_id'],
+                        store = False,
+                        data = None
+                        )
+        run_model(train = False, **aux_dict)
+        aux_metrics = {f"{aux['name']}_{m}": key for m, key in aux_metrics.items()}
+        wandb.log(aux_metrics)
