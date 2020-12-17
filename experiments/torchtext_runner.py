@@ -323,6 +323,7 @@ if __name__ == "__main__":
     pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
     train_writer = csv.writer(open(f"{base}_train.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    dev_writer = csv.writer(open(f"{base}_dev.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
     test_writer = csv.writer(open(f"{base}_test.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
     pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
     batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
@@ -374,7 +375,7 @@ if __name__ == "__main__":
     # Writing
     write_dict = dict(batch_writer = batch_writer,
                       train_writer = train_writer,
-                      test_writer = test_writer,
+                      test_writer = dev_writer,
                       pred_writer = None,
                       main_name = main['name'],
                       data_name = "_".join(main['name'] + [aux['name'].split()[0] for aux in auxillary]),
@@ -392,7 +393,13 @@ if __name__ == "__main__":
                           gpu = args.gpu,
                           mtl = 0,
                           store = False,
-                          data = None
+                          data = None,
+                          writer = test_writer,
+                          main_name = main['name'],
+                          data_name = main['name'],
+                          metric_hdr = args.metrics,
+                          model_hdr = model_hdr,
+                          hyper_info = [batch_size, epochs, learning_rate]
                           )
 
     run_model(train = False, **main_task_eval)
