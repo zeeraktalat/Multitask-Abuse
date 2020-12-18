@@ -204,7 +204,7 @@ if __name__ == "__main__":
                           'text': text,
                           'labels': label,
                           'name': aux,
-                          'task_id': i
+                          'task_id': i + 1  # to prevent i == 0 == main task
                           })
 
         # Dump vocabs
@@ -285,8 +285,7 @@ if __name__ == "__main__":
         dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
 
         test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
-        test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
-        test_batchers.append(test)
+        main_test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
 
         for aux in auxillary:
             train_buckets = BucketIterator(dataset = aux['train'], batch_size = batch_size, sort_key = lambda x: len(x))
@@ -305,8 +304,7 @@ if __name__ == "__main__":
         dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets, len(main['text'].vocab.stoi))
 
         test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
-        test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
-        test_batchers.append(test)
+        main_test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
 
         for aux in auxillary:
             train_buckets = BucketIterator(dataset = aux['train'], batch_size = batch_size, sort_key = lambda x: len(x))
@@ -387,7 +385,7 @@ if __name__ == "__main__":
 
     # Do tests
     main_task_eval = dict(model = model,
-                          batchers = test_batchers[0],
+                          batchers = main_test,
                           loss = loss,
                           metrics = Metrics(args.metrics, args.display, args.stop_metric),
                           gpu = args.gpu,
@@ -403,16 +401,22 @@ if __name__ == "__main__":
                           )
 
     run_model(train = False, **main_task_eval)
-    for aux in auxillary:
+    for task_ix, aux in enumerate(test_batchers):
         aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
         aux_dict = dict(model = model,
-                        batchers = aux['test'],
+                        batchers = aux,
                         metrics = aux_metrics,
                         gpu = args.gpu,
-                        mtl = aux['task_id'],
-                        store = False,
-                        data = None
+                        mtl = auxillary[task_ix]['task_id'],
+                        store = True,
+                        data = None,
+                        writer = test_writer,
+                        main_name = main['name'],
+                        data_name = auxillary[task_ix]['name'],
+                        metric_hdr = args.metrics,
+                        model_hdr = model_hdr,
+                        hyper_info = [batch_size, epochs, learning_rate]
                         )
         run_model(train = False, **aux_dict)
-        aux_metrics = {f"{aux['name']}_{m}": key for m, key in aux_metrics.items()}
+        aux_metrics = {f"{auxillary[task_ix]['name']}_{m}": value for m, value in aux_metrics.scores.items()}
         wandb.log(aux_metrics)
