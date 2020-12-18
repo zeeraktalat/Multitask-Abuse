@@ -110,6 +110,8 @@ venv.bak/
 results/*_preds.tsv
 results/*.trials.tsv
 results/*
+results.bak
+result_pre_torchtext/*
 
 # Raw data files
 data/raw/*
