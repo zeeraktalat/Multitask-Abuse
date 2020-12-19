@@ -402,11 +402,11 @@ if __name__ == "__main__":
 
     # Writing
     write_dict = dict(batch_writer = batch_writer,
-                      train_writer = train_writer,
+                      writer = train_writer,
                       test_writer = dev_writer,
                       pred_writer = None,
                       main_name = main['name'],
-                      data_name = "_".join(main['name'] + [aux['name'].split()[0] for aux in auxillary]),
+                      data_name = "_".join([main['name']] + [aux['name'].split()[0] for aux in auxillary]),
                       model_hdr = model_hdr,
                       metric_hdr = args.metrics + ['loss'],
                       hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
