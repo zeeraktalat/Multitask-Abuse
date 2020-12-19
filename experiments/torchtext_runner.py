@@ -144,14 +144,14 @@ if __name__ == "__main__":
     main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
 
     # Dump Vocabulary files
-    with open(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
               encoding = 'utf-8') as vocab_file:
         vocab_file.write(json.dumps(text.vocab.stoi))
         # vocab_artifact = wandb.Artifact('main_vocabs', type = 'vocab')
         # vocab_artifact.add_file(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab')
         # wandb.log_artifact(vocab_artifact)
 
-    with open(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.label', 'w',
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.label', 'w',
               encoding = 'utf-8') as label_file:
         label_file.write(json.dumps(label.vocab.stoi))
         # label_artifact = wandb.Artifact('main_label_vocabs', type = 'label_vocab')
@@ -208,7 +208,7 @@ if __name__ == "__main__":
                           })
 
         # Dump vocabs
-        with open(f'{args.results}vocabs/{aux}_{args.encoding}_{args.experiment}.vocab', 'w',
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.vocab', 'w',
                   encoding = 'utf-8') as vocab_file:
             vocab_file.write(json.dumps(text.vocab.stoi))
             # aux_artifact = wandb.Artifact(f'{aux}_vocabs', type = 'vocab')
@@ -216,7 +216,7 @@ if __name__ == "__main__":
             # wandb.log_artifact(aux_artifact)
 
         # Dump label vocabs
-        with open(f'{args.results}vocabs/{aux}_{args.encoding}_{args.experiment}.label', 'w',
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.label', 'w',
                   encoding = 'utf-8') as label_file:
             label_file.write(json.dumps(label.vocab.stoi))
             # aux_label_artifact = wandb.Artifact(f'{aux}_label_vocabs', type = 'label_vocab')
@@ -395,7 +395,7 @@ if __name__ == "__main__":
                       optimizer = optimizer,
 
                       # Dataset
-                      batchers = train,
+                      batchers = batchers,
                       metrics = Metrics(args.metrics, args.display, args.stop_metric),
                       dev = dev,
                       dev_metrics = Metrics(args.metrics, args.display, args.stop_metric))
