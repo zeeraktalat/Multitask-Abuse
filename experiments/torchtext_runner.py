@@ -225,17 +225,24 @@ if __name__ == "__main__":
             break  # All datasets have been loaded.
 
     # Hyper parameters
-    dropout = config.dropout
-    nonlinearity = config.nonlinearity
-    learning_rate = config.learning_rate
+    # Not in model info
     epochs = config.epochs
     batch_size = config.batch_size
-    batch_count = config.batches_epoch
-    loss_weights = config.loss_weights
+    batch_epoch = args.batches_epoch
+    loss_weights = args.loss_weights
 
-    params = dict(shared_dim = config.shared,
+    # In model info
+    hidden = config.hidden
+    shared = config.shared
+    learning_rate = config.learning_rate
+    dropout = config.dropout
+    nonlinearity = config.nonlinearity if args.model != 'lstm' else 'tanh'
+
+    params = dict(hidden_dims = [int(hid) for hid in hidden.split(',')],
+                  shared_dim = shared,
+                  dropout = dropout,
+                  nonlinearity = nonlinearity,
                   batch_first = True,
-                  hidden_dims = [int(hidden) for hidden in config.hidden.split(',')],
                   input_dims = [len(main['text'].vocab.stoi)] + [len(aux['text'].vocab.stoi) for aux in auxillary],
                   output_dims = [len(main['labels'].vocab.stoi)] + [len(aux['labels'].vocab.stoi) for aux in auxillary],
                   )
@@ -326,24 +333,45 @@ if __name__ == "__main__":
     pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
     batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
 
-    model_hdr = ['Model', 'Input dim', 'Embedding dim', 'Hidden dim', 'Output dim', 'Dropout', 'nonlinearity']
+    model_hdr = ['Model',
+                 'Input dim',
+                 'Embedding dim',
+                 'Hidden dim',
+                 'Output dim',
+                 'Shared dim',
+                 'Dropout',
+                 'nonlinearity']
 
     if enc == 'w':
         metric_hdr = args.metrics + ['loss']
-        hdr = ['Timestamp', 'Main task', 'Tasks', 'Batch size', '# Epochs', 'Learning rate'] + model_hdr
+        hdr = ['Timestamp',
+               'Main task',
+               'Tasks',
+               'Batch size',
+               '# Epochs',
+               'Learning rate',
+               'Batches / epoch'] + model_hdr
         hdr += metric_hdr
         test_writer.writerow(hdr)  # Don't include dev columns when writing test
         hdr += [f"dev {m}" for m in metric_hdr]
         train_writer.writerow(hdr)
 
         # Batch hdr
-        batch_hdr = ['Timestamp', 'Epoch', 'Batch', 'Task name', 'Main task', 'Batch size', '# Epochs', 'Learning rate']
+        batch_hdr = ['Timestamp',
+                     'Epoch',
+                     'Batch',
+                     'Task name',
+                     'Main task',
+                     'Batch size',
+                     '# Epochs',
+                     'Learning rate',
+                     'Batches / epoch']
         batch_hdr += model_hdr + metric_hdr
         batch_writer.writerow(batch_hdr)
 
     pred_metric_hdr = args.metrics + ['loss']
     if pred_enc == 'w':
-        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate'] + model_hdr
+        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate', 'Batches per epoch'] + model_hdr
         hdr += ['Label', 'Prediction']
         pred_writer.writerow(hdr)
 
@@ -355,7 +383,7 @@ if __name__ == "__main__":
 
                       # Hyper-parameters
                       clip = 1.0,
-                      epochs = epochs,
+                      epochs = config.epochs,
                       early_stopping = args.patience,
                       low = True if args.stop_metric == 'loss' else False,
 
@@ -379,7 +407,7 @@ if __name__ == "__main__":
                       data_name = "_".join(main['name'] + [aux['name'].split()[0] for aux in auxillary]),
                       model_hdr = model_hdr,
                       metric_hdr = args.metrics + ['loss'],
-                      hyper_info = [batch_size, epochs, learning_rate],
+                      hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
                       )
     run_model(train = True, **train_dict, **write_dict)
 
@@ -397,7 +425,7 @@ if __name__ == "__main__":
                           data_name = main['name'],
                           metric_hdr = args.metrics,
                           model_hdr = model_hdr,
-                          hyper_info = [batch_size, epochs, learning_rate]
+                          hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
                           )
 
     run_model(train = False, **main_task_eval)
@@ -415,7 +443,7 @@ if __name__ == "__main__":
                         data_name = auxillary[task_ix]['name'],
                         metric_hdr = args.metrics,
                         model_hdr = model_hdr,
-                        hyper_info = [batch_size, epochs, learning_rate]
+                        hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
                         )
         run_model(train = False, **aux_dict)
         aux_metrics = {f"{auxillary[task_ix]['name']}_{m}": value for m, value in aux_metrics.scores.items()}
