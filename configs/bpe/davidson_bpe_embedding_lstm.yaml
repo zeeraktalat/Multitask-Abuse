@@ -29,7 +29,7 @@ command:
   - "--datadir"
   - data/json/
   - "--results"
-  - results
+  - results/
   - "--save_model"
   - results/models/
   - "--shuffle"
