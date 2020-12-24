@@ -429,6 +429,7 @@ if __name__ == "__main__":
                           mtl = 0,
                           store = True,
                           data = None,
+                          writer = test_writer,
                           main_name = main['name'],
                           data_name = main['name'],
                           metric_hdr = args.metrics,
