@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # All models
     parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'lstm',
                         type = str.lower)
-    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 15,
+    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 1,
                         type = int)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
                         default = 'embedding', type = str.lower)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     parser.add_argument("--embedding", help = "Set the embedding dimension.", default = 64, type = int)
     parser.add_argument("--hidden", help = "Set the hidden dimension.", default = "64,128,50", type = str)
     parser.add_argument("--shared", help = "Set the shared dimension", default = 64, type = int)  # TODO Fix in MTL code
-    parser.add_argument("--epochs", help = "Set the number of epochs.", default = 200, type = int)
+    parser.add_argument("--epochs", help = "Set the number of epochs.", default = 5, type = int)
     parser.add_argument("--batch_size", help = "Set the batch size.", default = 64, type = int)
     parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = 'tanh',
                         type = str.lower)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", help = "Set upper limit for dropout.", default = 1.0, type = float)
 
     # MTL specific
-    parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = None)
+    parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = 20)
     parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
                         nargs = '+')
     args = parser.parse_args()
@@ -440,17 +440,20 @@ if __name__ == "__main__":
                           model_hdr = model_hdr,
                           hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
                           )
-
+    
+    wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()}) 
     run_model(train = False, **main_task_eval)
+
     for task_ix, aux in enumerate(test_batchers):
         aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
         aux_dict = dict(model = model,
                         batchers = aux,
                         metrics = aux_metrics,
-                        gpu = args.gpu,
+                        gpu = gpu,
                         mtl = auxillary[task_ix]['task_id'],
                         store = True,
                         data = None,
+                        loss = loss,
                         writer = test_writer,
                         main_name = main['name'],
                         data_name = auxillary[task_ix]['name'],
