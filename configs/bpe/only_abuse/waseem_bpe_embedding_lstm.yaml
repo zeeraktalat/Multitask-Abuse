@@ -12,14 +12,11 @@ command:
   - "--model"
   - lstm
   - "--main"
-  - davidson
+  - waseem
   - "--aux"
   - wulczyn
-  - waseem
   - waseem_hovy
-  - oraby_sarcasm
-  - oraby_factfeel
-  - hoover
+  - davidson
   - "--gpu"
   - 0
   - "--patience"
@@ -29,7 +26,7 @@ command:
   - "--datadir"
   - data/json/
   - "--results"
-  - results
+  - results/
   - "--save_model"
   - results/models/
   - "--shuffle"
@@ -51,15 +48,12 @@ command:
   - "--seed"
   - 42
   - "--loss_weights"
-  - 6
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
+  - 0.75
+  - 0.25
+  - 0.25
+  - 0.25
   - "--batches_epoch"
-  - 500
+  - 300
 method: bayes
 
 metric:
