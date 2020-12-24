@@ -326,14 +326,12 @@ if __name__ == "__main__":
 
     # Open output files
     base = f'{args.results}{args.main}_{args.encoding}_{args.experiment}_{args.tokenizer}'
-    enc = 'a' if os.path.isfile(f'{base}_train.tsv') else 'w'
-    pred_enc = 'a' if os.path.isfile(f'{base}_preds.tsv') else 'w'
 
-    train_writer = csv.writer(open(f"{base}_train.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    dev_writer = csv.writer(open(f"{base}_dev.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    test_writer = csv.writer(open(f"{base}_test.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
-    pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", pred_enc, encoding = 'utf-8'), delimiter = '\t')
-    batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", enc, encoding = 'utf-8'), delimiter = '\t')
+    train_writer = csv.writer(open(f"{base}_train.trial.tsv", 'w', encoding = 'utf-8'), delimiter = '\t')
+    dev_writer = csv.writer(open(f"{base}_dev.trial.tsv", 'w', encoding = 'utf-8'), delimiter = '\t')
+    test_writer = csv.writer(open(f"{base}_test.trial.tsv", 'w', encoding = 'utf-8'), delimiter = '\t')
+    pred_writer = csv.writer(open(f"{base}_preds.trial.tsv", 'w', encoding = 'utf-8'), delimiter = '\t')
+    batch_writer = csv.writer(open(f"{base}_batch.trial.tsv", 'w', encoding = 'utf-8'), delimiter = '\t')
 
     model_hdr = ['Model',
                  'Input dim',
