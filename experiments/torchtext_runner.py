@@ -421,10 +421,11 @@ if __name__ == "__main__":
     run_model(train = True, **train_dict, **write_dict)
 
     # Do tests
+    test_metrics = Metrics(args.metrics, args.display, args.stop_metric)
     main_task_eval = dict(model = model,
                           batchers = main_test,
                           loss = loss,
-                          metrics = Metrics(args.metrics, args.display, args.stop_metric),
+                          metrics = test_metrics,
                           gpu = gpu,
                           mtl = 0,
                           store = True,
@@ -441,9 +442,9 @@ if __name__ == "__main__":
                           pred_path = f"{base}_preds.trial.tsv",
                           labels = main['labels']
                           )
-
-    wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()})
     run_model(train = False, **main_task_eval)
+    test_scores = {f"{main['name']}_test_{m}": value for m, value in test_metrics.scores.items()}
+    wandb.log(test_scores)
 
     for task_ix, aux in enumerate(test_batchers):
         aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
