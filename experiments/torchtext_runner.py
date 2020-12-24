@@ -369,10 +369,11 @@ if __name__ == "__main__":
         batch_hdr += model_hdr + metric_hdr
         batch_writer.writerow(batch_hdr)
 
-    pred_metric_hdr = args.metrics + ['loss']
+    # pred_metric_hdr = args.metrics + ['loss']
     if pred_enc == 'w':
-        hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate', 'Batches per epoch'] + model_hdr
-        hdr += ['Label', 'Prediction']
+        # hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate', 'Batches per epoch'] + model_hdr
+        # hdr += ['Label', 'Prediction']
+        hdr = ['Timestamp', 'Dataset', 'Prediction', 'Label']
         pred_writer.writerow(hdr)
 
     # Set args
@@ -439,6 +440,8 @@ if __name__ == "__main__":
                         store = True,
                         data = None,
                         writer = test_writer,
+                        pred_writer = pred_writer,
+                        pred_path = f"{base}_preds.trial.tsv"
                         main_name = main['name'],
                         data_name = auxillary[task_ix]['name'],
                         metric_hdr = args.metrics,
