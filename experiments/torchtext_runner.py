@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     # MTL specific
     parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = 20)
-    parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
+    parser.add_argument("--loss_weights", help = "Set the weight of each task", type = float, default = None,
                         nargs = '+')
     args = parser.parse_args()
 
