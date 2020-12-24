@@ -451,13 +451,16 @@ if __name__ == "__main__":
                         data = None,
                         loss = loss,
                         writer = test_writer,
-                        pred_writer = pred_writer,
-                        pred_path = f"{base}_preds.trial.tsv",
                         main_name = main['name'],
                         data_name = auxillary[task_ix]['name'],
                         metric_hdr = args.metrics,
                         model_hdr = model_hdr,
-                        hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
+                        hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
+
+                        # Torchtext specific things
+                        pred_writer = pred_writer,
+                        pred_path = f"{base}_preds.trial.tsv",
+                        labels = auxillary[task_ix]['labels']
                         )
         run_model(train = False, **aux_dict)
         aux_metrics = {f"{auxillary[task_ix]['name']}_{m}": value for m, value in aux_metrics.scores.items()}
