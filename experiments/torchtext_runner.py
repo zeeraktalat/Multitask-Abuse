@@ -427,14 +427,18 @@ if __name__ == "__main__":
                           metrics = Metrics(args.metrics, args.display, args.stop_metric),
                           gpu = gpu,
                           mtl = 0,
-                          store = False,
+                          store = True,
                           data = None,
-                          writer = test_writer,
                           main_name = main['name'],
                           data_name = main['name'],
                           metric_hdr = args.metrics,
                           model_hdr = model_hdr,
-                          hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
+                          hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
+
+                          # Torchtext specific things
+                          pred_writer = pred_writer,
+                          pred_path = f"{base}_preds.trial.tsv",
+                          labels = main['labels']
                           )
 
     wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()})
