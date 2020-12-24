@@ -40,7 +40,7 @@ command:
   - url
   - lower
   - "--metrics"
-  - f1_score
+  - f1
   - accuracy
   - precision
   - recall

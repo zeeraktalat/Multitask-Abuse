@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--main", help = "Choose train data: Davidson, Waseem, Waseem and Hovy, Wulczyn, and Garcia.",
                         type = str.lower, default = 'Davidson')
     parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+',
-                        default = ['wulczyn'])
+                        default = ['hoover', 'waseem'])
     parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/json/')
     parser.add_argument("--results", help = "Set file to output results to.", default = 'results/')
     parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
@@ -29,26 +29,26 @@ if __name__ == "__main__":
     parser.add_argument("--metrics", help = "Set the metrics to be used.", nargs = '+', default = ["f1"],
                         type = str.lower)
     parser.add_argument("--display", help = "Metric to display in TQDM loops.", default = 'f1-score')
-    parser.add_argument("--stop_metric", help = "Set the metric to be used for early stopping", default = "loss")
+    parser.add_argument("--stop_metric", help = "Set the metric to be used for early stopping", default = "f1-score")
 
     # Experiment
     parser.add_argument("--experiment", help = "Set experiment to run.", default = "word", type = str.lower)
     parser.add_argument('--tokenizer', help = "select the tokenizer to be used: Spacy, Ekphrasis, BPE",
-                        default = 'ekphrasis', type = str.lower)
+                        default = 'bpe', type = str.lower)
     parser.add_argument('--seed', help = "Set the random seed.", type = int, default = 32)
 
     # Modelling
     # All models
-    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'mlp',
+    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'lstm',
                         type = str.lower)
-    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 15,
+    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 1,
                         type = int)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
                         default = 'embedding', type = str.lower)
     parser.add_argument("--optimizer", help = "Optimizer to use.", default = 'adam', type = str.lower)
     parser.add_argument("--loss", help = "Loss to use.", default = 'nlll', type = str.lower)
     parser.add_argument('--shuffle', help = "Shuffle dataset between epochs", type = bool, default = True)
-    parser.add_argument('--gpu', help = "Set to run on GPU", type = bool, default = False)
+    parser.add_argument('--gpu', help = "Set to run on GPU", type = int, default = 0)
     # LSTM
     parser.add_argument("--layers", help = "Set the number of layers.", default = 1, type = int)
     # CNN
@@ -57,9 +57,9 @@ if __name__ == "__main__":
 
     # Hyper Parameters
     parser.add_argument("--embedding", help = "Set the embedding dimension.", default = 64, type = int)
-    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = ["64,64"], type = str, nargs = '+')
+    parser.add_argument("--hidden", help = "Set the hidden dimension.", default = "64,128,50", type = str)
     parser.add_argument("--shared", help = "Set the shared dimension", default = 64, type = int)  # TODO Fix in MTL code
-    parser.add_argument("--epochs", help = "Set the number of epochs.", default = 200, type = int)
+    parser.add_argument("--epochs", help = "Set the number of epochs.", default = 5, type = int)
     parser.add_argument("--batch_size", help = "Set the batch size.", default = 64, type = int)
     parser.add_argument("--nonlinearity", help = "Set nonlinearity function for neural nets.", default = 'tanh',
                         type = str.lower)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", help = "Set upper limit for dropout.", default = 1.0, type = float)
 
     # MTL specific
-    parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = None)
+    parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = 20)
     parser.add_argument("--loss_weights", help = "Set the weight of each task", type = int, default = None,
                         nargs = '+')
     args = parser.parse_args()
@@ -87,8 +87,7 @@ if __name__ == "__main__":
     # Initialise random seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
-    if args.gpu:
-        torch.cuda.set_device(0)
+    torch.cuda.set_device(args.gpu)
 
     # Set up experiment and cleaner
     c = Cleaner(processes = args.cleaners)
@@ -144,14 +143,14 @@ if __name__ == "__main__":
     main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
 
     # Dump Vocabulary files
-    with open(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
               encoding = 'utf-8') as vocab_file:
         vocab_file.write(json.dumps(text.vocab.stoi))
         # vocab_artifact = wandb.Artifact('main_vocabs', type = 'vocab')
         # vocab_artifact.add_file(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab')
         # wandb.log_artifact(vocab_artifact)
 
-    with open(f'{args.results}vocabs/{args.main}_{args.encoding}_{args.experiment}.label', 'w',
+    with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.label', 'w',
               encoding = 'utf-8') as label_file:
         label_file.write(json.dumps(label.vocab.stoi))
         # label_artifact = wandb.Artifact('main_label_vocabs', type = 'label_vocab')
@@ -161,6 +160,7 @@ if __name__ == "__main__":
     # Load aux tasks
     auxillary = []
     for i, aux in enumerate(args.aux):
+        print(f"Loading dataset #{i}: {aux}")
         # Set up fields
         text = Field(tokenize = tokenizer, lower = True, batch_first = True)
         label = LabelField()
@@ -196,6 +196,12 @@ if __name__ == "__main__":
                                                      validation = 'waseem_hovy_dev.json',
                                                      test = 'waseem_hovy_test.json',
                                                      format = 'json', skip_header = True, fields = fields)
+        elif aux == 'wulczyn':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
+                                                     validation = 'wulczyn_dev.json',
+                                                     test = 'wulczyn_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+
         text.build_vocab(train)
         label.build_vocab(train)
         auxillary.append({'train': train,
@@ -208,7 +214,7 @@ if __name__ == "__main__":
                           })
 
         # Dump vocabs
-        with open(f'{args.results}vocabs/{aux}_{args.encoding}_{args.experiment}.vocab', 'w',
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.vocab', 'w',
                   encoding = 'utf-8') as vocab_file:
             vocab_file.write(json.dumps(text.vocab.stoi))
             # aux_artifact = wandb.Artifact(f'{aux}_vocabs', type = 'vocab')
@@ -216,7 +222,7 @@ if __name__ == "__main__":
             # wandb.log_artifact(aux_artifact)
 
         # Dump label vocabs
-        with open(f'{args.results}vocabs/{aux}_{args.encoding}_{args.experiment}.label', 'w',
+        with open(f'{args.results}/vocabs/{aux}_{args.encoding}_{args.experiment}.label', 'w',
                   encoding = 'utf-8') as label_file:
             label_file.write(json.dumps(label.vocab.stoi))
             # aux_label_artifact = wandb.Artifact(f'{aux}_label_vocabs', type = 'label_vocab')
@@ -377,9 +383,11 @@ if __name__ == "__main__":
         pred_writer.writerow(hdr)
 
     # Set args
+    gpu = True if args.gpu != -1 else False
+
     train_dict = dict(save_path = f"{args.save_model}{args.experiment}_{args.tokenizer}_{args.main}_best",
                       hyperopt = True,
-                      gpu = args.gpu,
+                      gpu = gpu,
                       shuffle = False,
 
                       # Hyper-parameters
@@ -387,6 +395,8 @@ if __name__ == "__main__":
                       epochs = config.epochs,
                       early_stopping = args.patience,
                       low = True if args.stop_metric == 'loss' else False,
+                      loss_weights = loss_weights,
+                      batches_per_epoch = batch_epoch,
 
                       # Model definitions
                       model = model,
@@ -394,10 +404,11 @@ if __name__ == "__main__":
                       optimizer = optimizer,
 
                       # Dataset
-                      batchers = train,
+                      batchers = batchers,
                       metrics = Metrics(args.metrics, args.display, args.stop_metric),
                       dev = dev,
-                      dev_metrics = Metrics(args.metrics, args.display, args.stop_metric))
+                      dev_metrics = Metrics(args.metrics, args.display, args.stop_metric)
+                      )
 
     # Writing
     write_dict = dict(batch_writer = batch_writer,
@@ -417,7 +428,7 @@ if __name__ == "__main__":
                           batchers = main_test,
                           loss = loss,
                           metrics = Metrics(args.metrics, args.display, args.stop_metric),
-                          gpu = args.gpu,
+                          gpu = gpu,
                           mtl = 0,
                           store = False,
                           data = None,
@@ -428,17 +439,20 @@ if __name__ == "__main__":
                           model_hdr = model_hdr,
                           hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
                           )
-
+    
+    wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()}) 
     run_model(train = False, **main_task_eval)
+
     for task_ix, aux in enumerate(test_batchers):
         aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
         aux_dict = dict(model = model,
                         batchers = aux,
                         metrics = aux_metrics,
-                        gpu = args.gpu,
+                        gpu = gpu,
                         mtl = auxillary[task_ix]['task_id'],
                         store = True,
                         data = None,
+                        loss = loss,
                         writer = test_writer,
                         pred_writer = pred_writer,
                         pred_path = f"{base}_preds.trial.tsv"
