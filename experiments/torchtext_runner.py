@@ -1,4 +1,3 @@
-import os
 import csv
 import json
 import wandb
@@ -348,39 +347,37 @@ if __name__ == "__main__":
                  'Dropout',
                  'nonlinearity']
 
-    if enc == 'w':
-        metric_hdr = args.metrics + ['loss']
-        hdr = ['Timestamp',
-               'Main task',
-               'Tasks',
-               'Batch size',
-               '# Epochs',
-               'Learning rate',
-               'Batches / epoch'] + model_hdr
-        hdr += metric_hdr
-        test_writer.writerow(hdr)  # Don't include dev columns when writing test
-        hdr += [f"dev {m}" for m in metric_hdr]
-        train_writer.writerow(hdr)
+    metric_hdr = args.metrics + ['loss']
+    hdr = ['Timestamp',
+           'Main task',
+           'Tasks',
+           'Batch size',
+           '# Epochs',
+           'Learning rate',
+           'Batches / epoch'] + model_hdr
+    hdr += metric_hdr
+    test_writer.writerow(hdr)  # Don't include dev columns when writing test
+    hdr += [f"dev {m}" for m in metric_hdr]
+    train_writer.writerow(hdr)
 
-        # Batch hdr
-        batch_hdr = ['Timestamp',
-                     'Epoch',
-                     'Batch',
-                     'Task name',
-                     'Main task',
-                     'Batch size',
-                     '# Epochs',
-                     'Learning rate',
-                     'Batches / epoch']
-        batch_hdr += model_hdr + metric_hdr
-        batch_writer.writerow(batch_hdr)
+    # Batch hdr
+    batch_hdr = ['Timestamp',
+                 'Epoch',
+                 'Batch',
+                 'Task name',
+                 'Main task',
+                 'Batch size',
+                 '# Epochs',
+                 'Learning rate',
+                 'Batches / epoch']
+    batch_hdr += model_hdr + metric_hdr
+    batch_writer.writerow(batch_hdr)
 
     # pred_metric_hdr = args.metrics + ['loss']
-    if pred_enc == 'w':
-        # hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate', 'Batches per epoch'] + model_hdr
-        # hdr += ['Label', 'Prediction']
-        hdr = ['Timestamp', 'Dataset', 'Prediction', 'Label']
-        pred_writer.writerow(hdr)
+    # hdr = ['Timestamp', 'Main task', 'Batch size', '# Epochs', 'Learning Rate', 'Batches per epoch'] + model_hdr
+    # hdr += ['Label', 'Prediction']
+    hdr = ['Timestamp', 'Dataset', 'Prediction', 'Label']
+    pred_writer.writerow(hdr)
 
     # Set args
     gpu = True if args.gpu != -1 else False
@@ -439,8 +436,8 @@ if __name__ == "__main__":
                           model_hdr = model_hdr,
                           hyper_info = [batch_size, epochs, learning_rate, batch_epoch]
                           )
-    
-    wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()}) 
+
+    wandb.log({f"{main['name']}_test_{m}": value for m, value in main_task_eval['metrics'].scores.items()})
     run_model(train = False, **main_task_eval)
 
     for task_ix, aux in enumerate(test_batchers):
@@ -455,7 +452,7 @@ if __name__ == "__main__":
                         loss = loss,
                         writer = test_writer,
                         pred_writer = pred_writer,
-                        pred_path = f"{base}_preds.trial.tsv"
+                        pred_path = f"{base}_preds.trial.tsv",
                         main_name = main['name'],
                         data_name = auxillary[task_ix]['name'],
                         metric_hdr = args.metrics,
