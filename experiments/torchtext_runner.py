@@ -137,6 +137,11 @@ if __name__ == "__main__":
                                                  validation = 'waseem_dev.json',
                                                  test = 'waseem_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
+    elif args.main == 'waseem_hovy':
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
+                                                 validation = 'waseem_hovy_dev.json',
+                                                 test = 'waseem_hovy_test.json',
+                                                 format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)
     label.build_vocab(train)
     main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
