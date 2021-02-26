@@ -479,5 +479,5 @@ if __name__ == "__main__":
                         labels = auxillary[task_ix]['labels']
                         )
         run_model(train = False, **aux_dict)
-        aux_metrics = {f"{auxillary[task_ix]['name']}_{m}": value for m, value in aux_metrics.scores.items()}
+        aux_metrics = {f"{test/auxillary[task_ix]['name']}_{m}": value[-1] for m, value in aux_metrics.scores.items() if m != 'loss'}
         wandb.log(aux_metrics)
