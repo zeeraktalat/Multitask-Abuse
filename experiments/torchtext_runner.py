@@ -38,9 +38,9 @@ if __name__ == "__main__":
 
     # Modelling
     # All models
-    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'lstm',
+    parser.add_argument("--model", help = "Choose the model to be run: CNN, RNN, LSTM, MLP, LR.", default = 'mlp',
                         type = str.lower)
-    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = 1,
+    parser.add_argument("--patience", help = "Set the number of epochs to keep trying to find a new best", default = -1,
                         type = int)
     parser.add_argument('--encoding', help = "Select encoding to be used: Onehot, Embedding, Tfidf, Count",
                         default = 'embedding', type = str.lower)
@@ -68,8 +68,9 @@ if __name__ == "__main__":
 
     # MTL specific
     parser.add_argument("--batches_epoch", help = "Set the number of batches per epoch", type = int, default = 20)
-    parser.add_argument("--loss_weights", help = "Set the weight of each task", type = float, default = None,
-                        nargs = '+')
+    parser.add_argument("--loss_weights", help = "Set the weight of each task", type = str, default = "1.0,0.5")
+    parser.add_argument("--dataset_weights", help = "Set the probability for each task to be chosen.", type = str,
+                        default = None)
     args = parser.parse_args()
 
     if 'f1' in args.metrics:
@@ -83,10 +84,14 @@ if __name__ == "__main__":
     wandb.init(config = args)
     config = wandb.config
 
+    if args.patience == -1: # If patience is not given then set the model to run all epochs.
+        args.patience = config.epochs
+
     # Initialise random seeds
     torch.random.manual_seed(args.seed)
     np.random.seed(args.seed)
-    torch.cuda.set_device(args.gpu)
+    if args.gpu != -1:
+        torch.cuda.set_device(0)
 
     # Set up experiment and cleaner
     c = Cleaner(processes = args.cleaners)
