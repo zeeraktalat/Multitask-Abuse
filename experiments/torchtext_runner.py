@@ -246,7 +246,7 @@ if __name__ == "__main__":
     epochs = config.epochs
     batch_size = config.batch_size
     batch_epoch = args.batches_epoch
-    loss_weights = args.loss_weights
+    loss_weights = [float(w) for w in config.loss_weights.split(',')]
 
     # In model info
     hidden = config.hidden
@@ -287,14 +287,13 @@ if __name__ == "__main__":
     elif args.loss == 'crossentropy':
         loss = torch.nn.CrossEntropyLoss()
 
-    # Set optimizer
-    if args.optimizer == 'adam':
+    if config.optimizer == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), learning_rate)
-    elif args.optimizer == 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), learning_rate)
-    elif args.optimizer == 'asgd':
+    elif config.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), learning_rate, momentum = 0.9)
+    elif config.optimizer == 'asgd':
         optimizer = torch.optim.ASGD(model.parameters(), learning_rate)
-    elif args.optimizer == 'adamw':
+    elif config.optimizer == 'adamw':
         optimizer = torch.optim.AdamW(model.parameters(), learning_rate)
 
     # Batch data
@@ -403,6 +402,7 @@ if __name__ == "__main__":
                       early_stopping = args.patience,
                       low = True if args.stop_metric == 'loss' else False,
                       loss_weights = loss_weights,
+                      dataset_weights = [float(w) for w in config.dataset_weights.split(',')],
                       batches_per_epoch = batch_epoch,
 
                       # Model definitions
