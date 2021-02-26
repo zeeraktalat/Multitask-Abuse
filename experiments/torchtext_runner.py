@@ -128,24 +128,24 @@ if __name__ == "__main__":
 
     # Load main task training data
     if args.main == 'davidson':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
-                                                 validation = 'davidson_dev.json',
-                                                 test = 'davidson_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
+                                                 validation = 'davidson_binary_dev.json',
+                                                 test = 'davidson_binary_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'wulczyn':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
-                                                 validation = 'wulczyn_dev.json',
-                                                 test = 'wulczyn_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_binary_train.json',
+                                                 validation = 'wulczyn_binary_dev.json',
+                                                 test = 'wulczyn_binary_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'waseem':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
-                                                 validation = 'waseem_dev.json',
-                                                 test = 'waseem_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_binary_train.json',
+                                                 validation = 'waseem_binary_dev.json',
+                                                 test = 'waseem_binary_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'waseem_hovy':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
-                                                 validation = 'waseem_hovy_dev.json',
-                                                 test = 'waseem_hovy_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_binary_train.json',
+                                                 validation = 'waseem_hovy_binary_dev.json',
+                                                 test = 'waseem_hovy_binary_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)
     label.build_vocab(train)
@@ -277,7 +277,8 @@ if __name__ == "__main__":
                            'num_filters': config.filters})
             model = mtl.OnehotCNNClassifier if onehot else mtl.EmbeddingCNNClassifier
         elif args.model == 'mlp':
-            model = mtl.OnehotMLPClassifier if onehot else mtl.EmbeddingMLPClassifier
+            # model = mtl.OnehotMLPClassifier if onehot else mtl.EmbeddingMLPClassifier
+            model = mtl.MTMLP
 
     model = model(**params)
 
@@ -455,6 +456,32 @@ if __name__ == "__main__":
     run_model(train = False, **main_task_eval)
     test_scores = {f"{main['name']}_test_{m}": value for m, value in test_metrics.scores.items()}
     wandb.log(test_scores)
+
+    # Tes ton main
+    aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
+    aux_dict = dict(model = model,
+                    batchers = main_test,
+                    metrics = aux_metrics,
+                    gpu = gpu,
+                    mtl = 0,
+                    store = True,
+                    data = None,
+                    loss = loss,
+                    writer = test_writer,
+                    main_name = main['name'],
+                    data_name = main['name'],
+                    metric_hdr = args.metrics,
+                    model_hdr = model_hdr,
+                    hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
+
+                    # Torchtext specific things
+                    pred_writer = pred_writer,
+                    pred_path = f"{base}_preds.trial.tsv",
+                    labels = auxillary[task_ix]['labels']
+                    )
+    run_model(train = False, **aux_dict)
+    aux_metrics = {f"test/{main['name']}_{m}": value[-1] for m, value in aux_metrics.scores.items() if m != 'loss'}
+    wandb.log(aux_metrics)
 
     for task_ix, aux in enumerate(test_batchers):
         aux_metrics = Metrics(args.metrics, args.display, args.stop_metric)
