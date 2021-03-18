@@ -277,9 +277,7 @@ if __name__ == "__main__":
                            'num_filters': config.filters})
             model = mtl.OnehotCNNClassifier if onehot else mtl.EmbeddingCNNClassifier
         elif args.model == 'mlp':
-            # model = mtl.OnehotMLPClassifier if onehot else mtl.EmbeddingMLPClassifier
-            model = mtl.MTMLP
-
+            model = mtl.OnehotMLPClassifier if onehot else mtl.EmbeddingMLPClassifier
     model = model(**params)
 
     # Info about losses: https://bit.ly/3irxvYK
