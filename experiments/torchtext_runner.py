@@ -128,24 +128,24 @@ if __name__ == "__main__":
 
     # Load main task training data
     if args.main == 'davidson':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
-                                                 validation = 'davidson_binary_dev.json',
-                                                 test = 'davidson_binary_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
+                                                 validation = 'davidson_dev.json',
+                                                 test = 'davidson_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'wulczyn':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_binary_train.json',
-                                                 validation = 'wulczyn_binary_dev.json',
-                                                 test = 'wulczyn_binary_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
+                                                 validation = 'wulczyn_dev.json',
+                                                 test = 'wulczyn_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'waseem':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_binary_train.json',
-                                                 validation = 'waseem_binary_dev.json',
-                                                 test = 'waseem_binary_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
+                                                 validation = 'waseem_dev.json',
+                                                 test = 'waseem_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     elif args.main == 'waseem_hovy':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_binary_train.json',
-                                                 validation = 'waseem_hovy_binary_dev.json',
-                                                 test = 'waseem_hovy_binary_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
+                                                 validation = 'waseem_hovy_dev.json',
+                                                 test = 'waseem_hovy_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)
     label.build_vocab(train)
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
         dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets)
 
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, train = False, shuffle = False, sort_key = lambda x: len(x.text), sort = False)
         main_test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
 
         for aux in auxillary:
@@ -316,7 +316,7 @@ if __name__ == "__main__":
             train = TorchtextExtractor('text', 'label', aux['name'], train_buckets)
             batchers.append(train)
 
-            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, sort_key = lambda x: len(x))
+            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, train = False, shuffle = False, sort_key = lambda x: len(x.text), sort = False)
             test = TorchtextExtractor('text', 'label', aux['name'], test_buckets)
             test_batchers.append(test)
     else:
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         dev_buckets = BucketIterator(dataset = main['dev'], batch_size = 64, sort_key = lambda x: len(x))
         dev = TorchtextExtractor('text', 'label', main['name'], dev_buckets, len(main['text'].vocab.stoi))
 
-        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, sort_key = lambda x: len(x))
+        test_buckets = BucketIterator(dataset = main['test'], batch_size = 64, train = False, shuffle = False, sort_key = lambda x: len(x.text), sort = False)
         main_test = TorchtextExtractor('text', 'label', main['name'], test_buckets)
 
         for aux in auxillary:
@@ -335,7 +335,7 @@ if __name__ == "__main__":
             train = TorchtextExtractor('text', 'label', aux['name'], train_buckets, len(aux['text'].vocab.stoi))
             batchers.append(train)
 
-            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, sort_key = lambda x: len(x))
+            test_buckets = BucketIterator(dataset = aux['test'], batch_size = 64, sort_key = lambda x: len(x.text), train = False, shuffle = False, sort = False)
             test = TorchtextExtractor('text', 'label', aux['name'], test_buckets)
             test_batchers.append(test)
 
