@@ -145,9 +145,9 @@ if __name__ == "__main__":
                                                  validation = 'waseem_hovy_dev.json',
                                                  test = 'waseem_hovy_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
-    text.build_vocab(train)
+    text.build_vocab(train)  # TODO This is where max_size should be set.
     label.build_vocab(train)
-    main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main}
+    main = {'train': train, 'dev': dev, 'test': test, 'text': {key: item for key, item in text.vocab.stoi.items()}, 'labels': label, 'name': args.main}
 
     # Dump Vocabulary files
     with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
