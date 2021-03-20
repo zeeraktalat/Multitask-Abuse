@@ -4,6 +4,8 @@ import time
 import wandb
 import torch
 import numpy as np
+from tqdm import tqdm
+from collections import defaultdict
 from argparse import ArgumentParser
 import mlearn.modeling.multitask as mtl
 from mlearn.utils.metrics import Metrics
@@ -148,7 +150,7 @@ if __name__ == "__main__":
                                                  format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)  # TODO This is where max_size should be set.
     label.build_vocab(train)
-    main = {'train': train, 'dev': dev, 'test': test, 'text': {key: item for key, item in text.vocab.stoi.items()}, 'labels': label, 'name': args.main}
+    main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main, 'vocab': {key: item for key, item in text.vocab.stoi.items()}}
 
     # Dump Vocabulary files
     with open(f'{args.results}/vocabs/{args.main}_{args.encoding}_{args.experiment}.vocab', 'w',
@@ -247,7 +249,7 @@ if __name__ == "__main__":
                   dropout = dropout,
                   nonlinearity = nonlinearity,
                   batch_first = True,
-                  input_dims = [len(main['text'].vocab.stoi)] + [len(aux['text'].vocab.stoi) for aux in auxillary],
+                  input_dims = [len(main['vocab'])] + [len(aux['text'].vocab.stoi) for aux in auxillary],
                   output_dims = [len(main['labels'].vocab.stoi)] + [len(aux['labels'].vocab.stoi) for aux in auxillary],
                   )
 
@@ -477,7 +479,7 @@ if __name__ == "__main__":
 
     with torch.no_grad():  # Do evaluations
         predictions = defaultdict(lambda: defaultdict(list))
-        eval_loop = tqdm([out_of_domain_abuse, desc = "Evaluation")
+        eval_loop = tqdm(out_of_domain_abuse, desc = "Evaluation")
 
         for aux in eval_loop:
             # Load AUX data
@@ -495,7 +497,7 @@ if __name__ == "__main__":
             pretensors = []
             for label, doc in tqdm(zip(aux_labels, aux_test), desc = "Encoding data", leave = False):
                 # Tensorize data
-                indices = [main['text'].get(tok.lower(), main['text']['<pad>']) for tok in doc]
+                indices = [main['vocab'].get(tok.lower(), main['vocab']['<pad>']) for tok in doc]
                 if len(indices) < max_len:
                     indices += (max_len - len(indices)) * [main['text'].get('<pad>', main['text']['<pad>'])]
                 pretensors.append(torch.tensor(indices, device = 'cpu').long())
