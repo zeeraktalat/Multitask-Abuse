@@ -421,7 +421,7 @@ if __name__ == "__main__":
     run_model(train = True, **train_dict, **write_dict)
     end = time.time()
     wandb.log({'Training time (s)': end - start, 'Training time (m)': (end - start) / 60})
-    torch.save({'model_state_dict': model.state_dict()}, os.path.join(config.save_model, f'{args.model}.pt')
+    torch.save({'model_state_dict': model.state_dict()}, os.path.join(config.save_model, f'{args.model}.pt'))
     wandb.save(os.path.join(args.save_model, f'{args.model}.pt'))
 
     # Do tests
