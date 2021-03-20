@@ -23,6 +23,7 @@ if __name__ == "__main__":
                         type = str.lower, default = 'Davidson')
     parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+',
                         default = ['hoover', 'waseem'])
+    parser.add_argument("--binary", help = "Load binary versions of main task dataset?", default = False, type = bool)
     parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/json/')
     parser.add_argument("--results", help = "Set file to output results to.", default = 'results/')
     parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
@@ -129,26 +130,48 @@ if __name__ == "__main__":
     fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
 
     # Load main task training data
-    if args.main == 'davidson':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
-                                                 validation = 'davidson_binary_dev.json',
-                                                 test = 'davidson_binary_test.json',
-                                                 format = 'json', skip_binary_header = True, fields = fields)
-    elif args.main == 'wulczyn':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_binary_train.json',
-                                                 validation = 'wulczyn_binary_dev.json',
-                                                 test = 'wulczyn_binary_test.json',
-                                                 format = 'json', skip_binary_header = True, fields = fields)
-    elif args.main == 'waseem':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_binary_train.json',
-                                                 validation = 'waseem_binary_dev.json',
-                                                 test = 'waseem_binary_test.json',
-                                                 format = 'json', skip_binary_header = True, fields = fields)
-    elif args.main == 'waseem_hovy':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_binary_train.json',
-                                                 validation = 'waseem_hovy_binary_dev.json',
-                                                 test = 'waseem_hovy_binary_test.json',
-                                                 format = 'json', skip_header = True, fields = fields)
+    if binary:
+        if args.main == 'davidson':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
+                                                     validation = 'davidson_binary_dev.json',
+                                                     test = 'davidson_binary_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'wulczyn':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_binary_train.json',
+                                                     validation = 'wulczyn_binary_dev.json',
+                                                     test = 'wulczyn_binary_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'waseem':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_binary_train.json',
+                                                     validation = 'waseem_binary_dev.json',
+                                                     test = 'waseem_binary_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'waseem_hovy':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_binary_train.json',
+                                                     validation = 'waseem_hovy_binary_dev.json',
+                                                     test = 'waseem_hovy_binary_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+    else:
+        if args.main == 'davidson':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
+                                                     validation = 'davidson_dev.json',
+                                                     test = 'davidson_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'wulczyn':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
+                                                     validation = 'wulczyn_dev.json',
+                                                     test = 'wulczyn_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'waseem':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
+                                                     validation = 'waseem_dev.json',
+                                                     test = 'waseem_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif args.main == 'waseem_hovy':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
+                                                     validation = 'waseem_hovy_dev.json',
+                                                     test = 'waseem_hovy_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)  # TODO This is where max_size should be set.
     label.build_vocab(train)
     main = {'train': train, 'dev': dev, 'test': test, 'text': text, 'labels': label, 'name': args.main, 'vocab': {key: item for key, item in text.vocab.stoi.items()}}
@@ -476,65 +499,66 @@ if __name__ == "__main__":
         aux_metrics = {f"test/{auxillary[task_ix]['name']}_{m}": value[-1] for m, value in aux_metrics.scores.items() if m != 'loss'}
         wandb.log(aux_metrics)
 
-    # Add tests for runninng on all abuse datasets (that aren't in main or aux)
-    abuse_datasets = ['wulczyn', 'waseem', 'waseem_hovy', 'garcia', 'davidson']
-    out_of_domain_abuse = [ds for ds in abuse_datasets if ds not in [args.main] + args.aux]
+    if binary:
+        # Add tests for runninng on all abuse datasets (that aren't in main or aux)
+        abuse_datasets = ['wulczyn', 'waseem', 'waseem_hovy', 'garcia', 'davidson']
+        out_of_domain_abuse = [ds for ds in abuse_datasets if ds not in [args.main] + args.aux]
 
-    with torch.no_grad():  # Do evaluations
-        predictions = defaultdict(lambda: defaultdict(list))
-        eval_loop = tqdm(out_of_domain_abuse, desc = "Evaluation")
+        with torch.no_grad():  # Do evaluations
+            predictions = defaultdict(lambda: defaultdict(list))
+            eval_loop = tqdm(out_of_domain_abuse, desc = "Evaluation")
 
-        for aux in eval_loop:
-            eval_loop.set_postfix(dataset = aux)
-            test_scores = Metrics(args.metrics, args.display, args.stop_metric)
+            for aux in eval_loop:
+                eval_loop.set_postfix(dataset = aux)
+                test_scores = Metrics(args.metrics, args.display, args.stop_metric)
 
-            # Load AUX data
-            aux_fp = open(os.path.join(args.datadir, f'{aux}_binary_test.json'), 'r', encoding = 'utf-8')
-            aux_test, aux_labels, lens = [], [], []
+                # Load AUX data
+                aux_fp = open(os.path.join(args.datadir, f'{aux}_binary_test.json'), 'r', encoding = 'utf-8')
+                aux_test, aux_labels, lens = [], [], []
 
-            for line in tqdm(aux_fp, desc = "Loading data", leave = False):
-                line = json.loads(line)
-                aux_test.append(tokenizer(line['text']))
-                aux_labels.append(line['label'].strip('\r\n'))
-                lens.append(len(aux_test[-1]))
+                for line in tqdm(aux_fp, desc = "Loading data", leave = False):
+                    line = json.loads(line)
+                    aux_test.append(tokenizer(line['text']))
+                    aux_labels.append(line['label'].strip('\r\n'))
+                    lens.append(len(aux_test[-1]))
 
-            # Tensorise
-            max_len = max(lens)
-            pretensors = []
-            for label, doc in tqdm(zip(aux_labels, aux_test), desc = "Encoding data", leave = False):
-                # Tensorize data
-                indices = [main['vocab'].get(tok.lower(), main['vocab']['<pad>']) for tok in doc]
-                if len(indices) < max_len:
-                    indices += (max_len - len(indices)) * [main['text'].get('<pad>', main['text']['<pad>'])]
-                pretensors.append(torch.tensor(indices, device = 'cpu').long())
+                # Tensorise
+                max_len = max(lens)
+                pretensors = []
+                for label, doc in tqdm(zip(aux_labels, aux_test), desc = "Encoding data", leave = False):
+                    # Tensorize data
+                    indices = [main['vocab'].get(tok.lower(), main['vocab']['<pad>']) for tok in doc]
+                    if len(indices) < max_len:
+                        indices += (max_len - len(indices)) * [main['vocab'].get('<pad>', main['vocab']['<pad>'])]
+                    pretensors.append(torch.tensor(indices, device = 'cpu').long())
 
-            # Make batches
-            test_batches = []
-            preds = []
-            for start_ix in tqdm(range(0, len(pretensors), 64), desc = "Run inference", leave = False):
-                test_batches = pretensors[start_ix:start_ix + 64]
-                batch_labels = aux_labels[start_ix:start_ix + 64]
-                tensor = torch.stack(test_batches, dim = 0)
+                # Make batches
+                test_batches = []
+                preds = []
+                for start_ix in tqdm(range(0, len(pretensors), 64), desc = "Run inference", leave = False):
+                    test_batches = pretensors[start_ix:start_ix + 64]
+                    batch_labels = aux_labels[start_ix:start_ix + 64]
+                    tensor = torch.stack(test_batches, dim = 0)
 
-                if gpu:
-                    tensor = tensor.cuda()
-                try:
-                    pred = model(tensor)
-                    pred = torch.argmax(pred, dim = 1)
-                except RuntimeError as e: # Catching this to prevent failing due to bigger kernel size than document.
-                    if onehot:
-                        tensor = onehot_encoder(pretensors, model_params['input_dim']).type(torch.long)
                     if gpu:
                         tensor = tensor.cuda()
-                    result = model(tensor)
-                    pred = torch.argmax(result, dim = 1)
-                preds.extend([main['labels'].vocab.itos[p] for p in pred])
+                    try:
+                        pred = model(tensor, task_id=0)
+                        pred = torch.argmax(pred, dim = 1)
+                    except RuntimeError as e: # Catching this to prevent failing due to bigger kernel size than document.
+                        if onehot:
+                            tensor = onehot_encoder(pretensors, model_params['input_dim']).type(torch.long)
+                        if gpu:
+                            tensor = tensor.cuda()
+                        result = model(tensor, task_id=0)
+                        pred = torch.argmax(result, dim = 1)
+                    preds.extend([main['labels'].vocab.itos[p] for p in pred])
 
-            # Store predictions
-            predictions[aux]['preds'] = preds
-            predictions[aux]['true'] = aux_labels
-            predictions[aux]['data'] = aux_test
+                # Store predictions
+                predictions[aux]['preds'] = preds
+                predictions[aux]['true'] = aux_labels
+                predictions[aux]['data'] = aux_test
 
-            # Compute & store metrics
-            predictions[aux]['scores'] = test_scores.compute(aux_labels, preds)
-            wandb.log({f'test/{aux}_{score_n}': scores[-1] for score_n, scores in predictions[aux]['scores'].items() if score_n != 'loss'})
+                # Compute & store metrics
+                predictions[aux]['scores'] = test_scores.compute(aux_labels, preds)
+                wandb.log({f'test/{aux}_{score_n}': scores[-1] for score_n, scores in predictions[aux]['scores'].items() if score_n != 'loss'})
