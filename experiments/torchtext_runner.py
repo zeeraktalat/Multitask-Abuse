@@ -470,3 +470,63 @@ if __name__ == "__main__":
         run_model(train = False, **aux_dict)
         aux_metrics = {f"test/{auxillary[task_ix]['name']}_{m}": value[-1] for m, value in aux_metrics.scores.items() if m != 'loss'}
         wandb.log(aux_metrics)
+
+    # Add tests for runninng on all abuse datasets (that aren't in main or aux)
+    abuse_datasets = ['wulczyn', 'waseem', 'wasem-hovy', 'garcia', 'davidson']
+    out_of_domain_abuse = [ds for ds in abuse_datasets if ds not in [args.main] + args.aux]
+
+    with torch.no_grad():  # Do evaluations
+        predictions = defaultdict(lambda: defaultdict(list))
+        eval_loop = tqdm([out_of_domain_abuse, desc = "Evaluation")
+
+        for aux in eval_loop:
+            # Load AUX data
+            aux_fp = open(os.path.join(args.datadir, f'{aux}__test.json'), 'r', encoding = 'utf-8')
+            aux_test, aux_labels, lens = [], [], []
+
+            for line in tqdm(aux_fp, desc = "Loading data", leave = False):
+                line = json.loads(line)
+                aux_test.append(tokenizer(line['text']))
+                aux_labels.append(line['label'].strip('\r\n'))
+                lens.append(len(aux_test[-1]))
+
+            # Tensorise
+            max_len = max(lens)
+            pretensors = []
+            for label, doc in tqdm(zip(aux_labels, aux_test), desc = "Encoding data", leave = False):
+                # Tensorize data
+                indices = [main['text'].get(tok.lower(), main['text']['<pad>']) for tok in doc]
+                if len(indices) < max_len:
+                    indices += (max_len - len(indices)) * [main['text'].get('<pad>', main['text']['<pad>'])]
+                pretensors.append(torch.tensor(indices, device = 'cpu').long())
+
+            # Make batches
+            test_batches = []
+            preds = []
+            for start_ix in tqdm(range(0, len(pretensors), 64), desc = "Run inference", leave = False):
+                test_batches = pretensors[start_ix:start_ix + 64]
+                batch_labels = aux_labels[start_ix:start_ix + 64]
+                tensor = torch.stack(test_batches, dim = 0)
+
+                if gpu:
+                    tensor = tensor.cuda()
+                try:
+                    pred = model(tensor)
+                    pred = torch.argmax(pred, dim = 1)
+                except RuntimeError as e: # Catching this to prevent failing due to bigger kernel size than document.
+                    if onehot:
+                        tensor = onehot_encoder(pretensors, model_params['input_dim']).type(torch.long)
+                    if gpu:
+                        tensor = tensor.cuda()
+                    result = model(tensor)
+                    pred = torch.argmax(result, dim = 1)
+                preds.extend([main['labels'].vocab.itos[p] for p in pred])
+
+            # Store predictions
+            predictions[aux]['preds'] = preds
+            predictions[aux]['true'] = aux_labels
+            predictions[aux]['data'] = aux_test
+
+            # Compute & store metrics
+            predictions[aux]['scores'] = test_scores.compute(aux_labels, preds)
+            wandb.log({f'test/{aux}_{score_n}': scores[-1] for score_n, scores in predictions[aux]['scores'].items() if score_n != 'loss'})
