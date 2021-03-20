@@ -130,24 +130,24 @@ if __name__ == "__main__":
 
     # Load main task training data
     if args.main == 'davidson':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_train.json',
-                                                 validation = 'davidson_dev.json',
-                                                 test = 'davidson_test.json',
-                                                 format = 'json', skip_header = True, fields = fields)
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
+                                                 validation = 'davidson_binary_dev.json',
+                                                 test = 'davidson_binary_test.json',
+                                                 format = 'json', skip_binary_header = True, fields = fields)
     elif args.main == 'wulczyn':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_train.json',
-                                                 validation = 'wulczyn_dev.json',
-                                                 test = 'wulczyn_test.json',
-                                                 format = 'json', skip_header = True, fields = fields)
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'wulczyn_binary_train.json',
+                                                 validation = 'wulczyn_binary_dev.json',
+                                                 test = 'wulczyn_binary_test.json',
+                                                 format = 'json', skip_binary_header = True, fields = fields)
     elif args.main == 'waseem':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
-                                                 validation = 'waseem_dev.json',
-                                                 test = 'waseem_test.json',
-                                                 format = 'json', skip_header = True, fields = fields)
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_binary_train.json',
+                                                 validation = 'waseem_binary_dev.json',
+                                                 test = 'waseem_binary_test.json',
+                                                 format = 'json', skip_binary_header = True, fields = fields)
     elif args.main == 'waseem_hovy':
-        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_train.json',
-                                                 validation = 'waseem_hovy_dev.json',
-                                                 test = 'waseem_hovy_test.json',
+        train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_hovy_binary_train.json',
+                                                 validation = 'waseem_hovy_binary_dev.json',
+                                                 test = 'waseem_hovy_binary_test.json',
                                                  format = 'json', skip_header = True, fields = fields)
     text.build_vocab(train)  # TODO This is where max_size should be set.
     label.build_vocab(train)
@@ -477,7 +477,7 @@ if __name__ == "__main__":
         wandb.log(aux_metrics)
 
     # Add tests for runninng on all abuse datasets (that aren't in main or aux)
-    abuse_datasets = ['wulczyn', 'waseem', 'wasem-hovy', 'garcia', 'davidson']
+    abuse_datasets = ['wulczyn', 'waseem', 'waseem_hovy', 'garcia', 'davidson']
     out_of_domain_abuse = [ds for ds in abuse_datasets if ds not in [args.main] + args.aux]
 
     with torch.no_grad():  # Do evaluations
@@ -485,8 +485,11 @@ if __name__ == "__main__":
         eval_loop = tqdm(out_of_domain_abuse, desc = "Evaluation")
 
         for aux in eval_loop:
+            eval_loop.set_postfix(dataset = aux)
+            test_scores = Metrics(args.metrics, args.display, args.stop_metric)
+
             # Load AUX data
-            aux_fp = open(os.path.join(args.datadir, f'{aux}__test.json'), 'r', encoding = 'utf-8')
+            aux_fp = open(os.path.join(args.datadir, f'{aux}_binary_test.json'), 'r', encoding = 'utf-8')
             aux_test, aux_labels, lens = [], [], []
 
             for line in tqdm(aux_fp, desc = "Loading data", leave = False):
