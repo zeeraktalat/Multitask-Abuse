@@ -1,5 +1,6 @@
 import csv
 import json
+import time
 import wandb
 import torch
 import numpy as np
@@ -413,7 +414,10 @@ if __name__ == "__main__":
                       metric_hdr = args.metrics + ['loss'],
                       hyper_info = [batch_size, epochs, learning_rate, batch_epoch],
                       )
+    start = time.time()
     run_model(train = True, **train_dict, **write_dict)
+    end = time.time()
+    wandb.log({'Training time (s)': end - start, 'Training time (m)': (end - start) / 60})
 
     # Do tests
     test_metrics = Metrics(args.metrics, args.display, args.stop_metric)
