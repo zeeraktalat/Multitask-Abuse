@@ -104,22 +104,19 @@ if __name__ == "__main__":
         selected_tok  = c.tokenize
     elif args.tokenizer == 'bpe':
         selected_tok = c.bpe_tokenize
-    elif args.tokenizer == 'ekphrasis' and args.experiment == 'word':
-        selected_tok = c.ekphrasis_tokenize
-        annotate = {'elongated', 'emphasis'}
-        flters = [f"<{filtr}>" for filtr in annotate]
-        c._load_ekphrasis(annotate, flters)
-    elif args.tokenizer == 'ekphrasis' and args.experiment == 'liwc':
+    elif args.tokenizer == 'ekphrasis':
         ekphr = c.ekphrasis_tokenize
         annotate = {'elongated', 'emphasis'}
         flters = [f"<{filtr}>" for filtr in annotate]
         c._load_ekphrasis(annotate, flters)
+        selected_tok = ekphr
 
-        def liwc_toks(doc):
-            tokens = ekphr(doc)
-            tokens = exp(tokens)
-            return tokens
-        selected_tok = liwc_toks
+        if args.experiment == 'liwc':
+            def liwc_toks(doc):
+                tokens = ekphr(doc)
+                tokens = exp(tokens)
+                return tokens
+            selected_tok = liwc_toks
     tokenizer = selected_tok
 
     # Set up fields
