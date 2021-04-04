@@ -23,7 +23,7 @@ if __name__ == "__main__":
                         type = str.lower, default = 'Davidson')
     parser.add_argument("--aux", help = "Specify the auxiliary datasets to be loaded.", type = str, nargs = '+',
                         default = ['hoover', 'waseem'])
-    parser.add_argument("--binary", help = "Load binary versions of main task dataset?", default = False, type = bool)
+    parser.add_argument("--binary", dest='binary',help = "Load binary versions of main task dataset?", default = False, type = bool)
     parser.add_argument("--datadir", help = "Path to the datasets.", default = 'data/json/')
     parser.add_argument("--results", help = "Set file to output results to.", default = 'results/')
     parser.add_argument("--save_model", help = "Directory to store models in.", default = 'results/models/')
@@ -86,6 +86,8 @@ if __name__ == "__main__":
         args.stop_metric = 'f1-score'
 
     # Set up WandB logging
+    # wandb.init(settings=wandb.Settings(start_method='thread'))
+    # wandb.init(settings=wandb.Settings(start_method='fork'))
     wandb.init(config = args)
     config = wandb.config
 
@@ -130,7 +132,7 @@ if __name__ == "__main__":
     fields = {'text': ('text', text), 'label': ('label', label)}  # Because we load from json we just need this.
 
     # Load main task training data
-    if binary:
+    if args.binary:
         if args.main == 'davidson':
             train, dev, test = TabularDataset.splits(args.datadir, train = 'davidson_binary_train.json',
                                                      validation = 'davidson_binary_dev.json',
@@ -498,7 +500,7 @@ if __name__ == "__main__":
         aux_metrics = {f"test/{auxillary[task_ix]['name']}_{m}": value[-1] for m, value in aux_metrics.scores.items() if m != 'loss'}
         wandb.log(aux_metrics)
 
-    if binary:
+    if args.binary:
         # Add tests for runninng on all abuse datasets (that aren't in main or aux)
         abuse_datasets = ['wulczyn', 'waseem', 'waseem_hovy', 'garcia', 'davidson']
         out_of_domain_abuse = [ds for ds in abuse_datasets if ds not in [args.main] + args.aux]
