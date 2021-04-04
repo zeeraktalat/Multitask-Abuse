@@ -199,21 +199,6 @@ if __name__ == "__main__":
                                                      validation = 'davidson_dev.json',
                                                      test = 'davidson_test.json',
                                                      format = 'json', skip_header = True, fields = fields)
-        elif aux == 'hoover':
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'hoover_train.json',
-                                                     validation = 'hoover_dev.json',
-                                                     test = 'hoover_test.json',
-                                                     format = 'json', skip_header = True, fields = fields)
-        elif aux == 'oraby_factfeel':
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_fact_feel_train.json',
-                                                     validation = 'oraby_fact_feel_dev.json',
-                                                     test = 'oraby_fact_feel_test.json',
-                                                     format = 'json', skip_header = True, fields = fields)
-        elif aux == 'oraby_sarcasm':
-            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_sarcasm_train.json',
-                                                     validation = 'oraby_sarcasm_dev.json',
-                                                     test = 'oraby_sarcasm_test.json',
-                                                     format = 'json', skip_header = True, fields = fields)
         elif aux == 'waseem':
             train, dev, test = TabularDataset.splits(args.datadir, train = 'waseem_train.json',
                                                      validation = 'waseem_dev.json',
@@ -229,7 +214,21 @@ if __name__ == "__main__":
                                                      validation = 'wulczyn_dev.json',
                                                      test = 'wulczyn_test.json',
                                                      format = 'json', skip_header = True, fields = fields)
-
+        elif aux == 'hoover':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'hoover_train.json',
+                                                     validation = 'hoover_dev.json',
+                                                     test = 'hoover_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'oraby_factfeel':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_fact_feel_train.json',
+                                                     validation = 'oraby_fact_feel_dev.json',
+                                                     test = 'oraby_fact_feel_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
+        elif aux == 'oraby_sarcasm':
+            train, dev, test = TabularDataset.splits(args.datadir, train = 'oraby_sarcasm_train.json',
+                                                     validation = 'oraby_sarcasm_dev.json',
+                                                     test = 'oraby_sarcasm_test.json',
+                                                     format = 'json', skip_header = True, fields = fields)
         text.build_vocab(train)
         label.build_vocab(train)
         auxillary.append({'train': train,
