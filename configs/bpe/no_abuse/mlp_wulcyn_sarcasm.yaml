@@ -1,26 +1,20 @@
 program: experiments/torchtext_runner.py
 command:
   - ${env}
-  - python3
+  - python
   - ${program}
   - "--tokenizer"
   - bpe
   - "--experiment"
-  - word
+  - bpe
   - "--encoding"
   - index
   - "--model"
-  - lstm
+  - mlp
   - "--main"
-  - davidson
-  - "--aux"
   - wulczyn
-  - waseem_hovy
-  - waseem
-  - "--gpu"
-  - 0
-  - "--patience"
-  - 15
+  - "--aux"
+  - oraby_sarcasm
   - "--layers"
   - 1
   - "--datadir"
@@ -41,24 +35,17 @@ command:
   - accuracy
   - precision
   - recall
-  - "--optimizer"
-  - adam
   - "--loss"
   - nlll
   - "--seed"
   - 42
-  - "--loss_weights"
-  - 0.75
-  - 0.25
-  - 0.25
-  - 0.25
   - "--batches_epoch"
   - 300
 method: bayes
 
 metric:
   goal: maximize
-  name: dev_f1-score
+  name: dev/f1-score
 
 parameters:
   epochs:
@@ -66,9 +53,9 @@ parameters:
   batch_size:
     values: [16, 32, 64]
   embedding:
-    values: [100, 300]
+    values: [64, 100, 200, 300]
   hidden:
-    values: ["100,100,100,100,100,100,100", "300,300,300,300,300,300,300"]
+    values: ["64,64", "100,100", "200,200", "300,300"]
   shared:
     values: [64, 128, 256]
   learning_rate:
@@ -79,3 +66,11 @@ parameters:
     distribution: uniform
     min: 0.0
     max: 0.5
+  loss_weights:
+    values: ["1.0,1.0"]
+  dataset_weights:
+    values: ["0.7,0.3"]
+  optimizer:
+    values: ['adam', 'sgd', 'adamw', 'asgd']
+  nonlinearity:
+    values: ['tanh', 'relu']

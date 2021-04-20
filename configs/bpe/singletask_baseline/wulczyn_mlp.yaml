@@ -1,22 +1,18 @@
-program: experiments/torchtext_runner.py
+program: experiments/singletask_baseline.py
 command:
   - ${env}
-  - python3
+  - python
   - ${program}
   - "--tokenizer"
   - bpe
   - "--experiment"
-  - word
+  - bpe
   - "--encoding"
   - index
   - "--model"
-  - lstm
+  - mlp
   - "--main"
-  - waseem
-  - "--aux"
   - wulczyn
-  - waseem_hovy
-  - davidson
   - "--gpu"
   - 0
   - "--patience"
@@ -37,28 +33,19 @@ command:
   - url
   - lower
   - "--metrics"
-  - f1
+  - f1_score
   - accuracy
   - precision
   - recall
-  - "--optimizer"
-  - adam
   - "--loss"
   - nlll
   - "--seed"
   - 42
-  - "--loss_weights"
-  - 0.75
-  - 0.25
-  - 0.25
-  - 0.25
-  - "--batches_epoch"
-  - 300
 method: bayes
 
 metric:
-  goal: maximize
-  name: dev_f1-score
+  goal: maximize 
+  name: dev/f1-score
 
 parameters:
   epochs:
@@ -66,11 +53,9 @@ parameters:
   batch_size:
     values: [16, 32, 64]
   embedding:
-    values: [100, 300]
+    values: [64, 100, 200, 300]
   hidden:
-    values: ["100,100,100,100,100,100,100", "300,300,300,300,300,300,300"]
-  shared:
-    values: [64, 128, 256]
+    values: [64, 100, 200, 300]
   learning_rate:
     distribution: uniform
     min: 0.00001
@@ -79,3 +64,7 @@ parameters:
     distribution: uniform
     min: 0.0
     max: 0.5
+  nonlinearity:
+    values: [relu, tanh]
+  optimizer:
+    values: [sgd, adam, asgd, adamw]
