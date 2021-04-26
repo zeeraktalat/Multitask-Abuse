@@ -12,12 +12,11 @@ command:
   - "--model"
   - mlp
   - "--main"
-  - davidson
-  - "--aux"
-  - factfeel
-  - waseem_hovy
   - wulczyn
-  - sarcasm
+  - "--aux"
+  - oraby_sarcasm
+  - hoover
+  - waseem_hovy
   - "--layers"
   - 1
   - "--datadir"
@@ -45,7 +44,7 @@ command:
   - "--batches_epoch"
   - 300
   - "--loss_weights"
-  - "1.0,1.0,1.0,1.0,1.0"
+  - "1.0,1.0,1.0,1.0"
 method: bayes
 
 metric:
@@ -60,7 +59,7 @@ parameters:
   embedding:
     values: [64, 100, 200, 300]
   hidden:
-    values: ["64,64,64,64,64", "100,100,100,100,100", "200,200,200,200,200", "300,300,300,300,300"]
+    values: ["64,64,64,64", "100,100,100,100", "200,200,200,200", "300,300,300,300"]
   shared:
     values: [64, 128, 256]
   learning_rate:
@@ -72,7 +71,7 @@ parameters:
     min: 0.0
     max: 0.5
   dataset_weights:
-    values: ["0.6,0.1,0.1,0.1,0.1"]
+    values: ["0.6,0.1333,0.1333,0.1333"]
   optimizer:
     values: ['adam', 'sgd', 'adamw', 'asgd']
   nonlinearity:

@@ -12,11 +12,11 @@ command:
   - "--model"
   - mlp
   - "--main"
-  - davidson
+  - wulczyn
   - "--aux"
-  - oraby_factfeel
+  - oraby_sarcasm
+  - hoover
   - waseem_hovy
-  - sarcasm
   - "--layers"
   - 1
   - "--datadir"
