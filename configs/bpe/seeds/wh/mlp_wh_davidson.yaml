@@ -52,7 +52,7 @@ command:
   - "--epochs"
   - 100
   - "--hidden"
-  - 200
+  - "200,200"
   - "--learning_rate"
   - 0.2846
   - "--nonlinearity"
