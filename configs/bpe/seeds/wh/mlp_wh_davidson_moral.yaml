@@ -1,0 +1,74 @@
+program: experiments/torchtext_runner.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - "--tokenizer"
+  - bpe
+  - "--experiment"
+  - bpe
+  - "--encoding"
+  - index
+  - "--model"
+  - mlp
+  - "--main"
+  - waseem_hovy
+  - "--aux"
+  - davidson
+  - hoover
+  - "--layers"
+  - 1
+  - "--datadir"
+  - /scratch/zeerak/MTL/data/json/
+  - "--results"
+  - /scratch/zeerak/MTL/results/
+  - "--save_model"
+  - /scratch/zeerak/MTL/results/models/
+  - "--shuffle"
+  - True
+  - "--cleaners"
+  - username
+  - hashtag
+  - url
+  - lower
+  - "--metrics"
+  - f1
+  - accuracy
+  - precision
+  - recall
+  - "--loss"
+  - nlll
+  - "--loss_weights"
+  - "1.0,1.0,1.0"
+  - "--dataset_weights"
+  - "0.6,0.2,0.2"
+  - "--batches_epoch"
+  - 300
+  - "--batch_size"
+  - 16
+  - "--dropout"
+  - 0.1408
+  - "--embedding"
+  - 300
+  - "--epochs"
+  - 100
+  - "--hidden"
+  - "64,64,64"
+  - "--learning_rate"
+  - 0.1237
+  - "--nonlinearity"
+  - "tanh"
+  - "--optimizer"
+  - "sgd"
+  - "--shared"
+  - 128
+
+method: grid
+
+metric:
+  goal: maximize
+  name: dev/f1-score
+
+parameters:
+  seed:
+    values: [22, 32, 42, 92, 120]
